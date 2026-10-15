@@ -21,8 +21,8 @@ Enable the module in your world, then **log in as the GM once**. The module sets
 ## Using it
 
 1. Drag **Shared Party Stash** from the Items sidebar into a character's inventory.
-2. A red chest with a blue **Party** badge appears next to the character's other bag icons, plus a **Party** button. Clicking either opens the shared stash.
-3. **Put items in:** drag them into the stash window, or drop them on the Party button or the shared bag icon.
+2. A red chest with a blue glow and a **Party** label appears next to the character's other bag icons. Clicking it opens the shared stash.
+3. **Put items in:** drag them into the stash window, or drop them on the shared bag icon.
 4. **Take items out:** drag them from the stash window into your inventory.
 
 Items always **move** (they're never duplicated). The GM can hold Ctrl or Alt while dragging to copy instead.
