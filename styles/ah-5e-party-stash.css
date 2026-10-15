@@ -1,0 +1,75 @@
+/* AH 5E Party Stash */
+
+/* The "Party Stash" button next to the bag icons, and the shared bag tile itself */
+.dnd5e2 .containers .container.ah-party-stash-open,
+.dnd5e2 .containers .container.ah-party-stash-proxy {
+  border: 2px solid #4fb3c9;
+  box-shadow: 0 0 8px rgba(79, 179, 201, 0.75);
+}
+
+.dnd5e2 .containers .container.ah-party-stash-open {
+  cursor: pointer;
+}
+
+.dnd5e2 .containers .container.ah-party-stash-open > a {
+  position: relative;
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.dnd5e2 .containers .container.ah-party-stash-open img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 3px;
+}
+
+.dnd5e2 .containers .container.ah-party-stash-open .ah-party-stash-label {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: 1px 0;
+  font-size: 10px;
+  font-weight: bold;
+  text-align: center;
+  text-transform: uppercase;
+  color: #fff;
+  background: rgba(20, 70, 85, 0.85);
+  border-radius: 0 0 3px 3px;
+  pointer-events: none;
+}
+
+.dnd5e2 .containers .container.ah-party-stash-open:hover,
+.dnd5e2 .containers .container.ah-party-stash-open.ah-drop-hover {
+  box-shadow: 0 0 12px rgba(79, 179, 201, 1);
+  filter: brightness(1.15);
+}
+
+/* Small "shared" badge on the shared bag's tile */
+.dnd5e2 .containers .container .ah-party-stash-badge {
+  position: absolute;
+  inset: -3px auto auto -3px;
+  padding: 3px;
+  font-size: 10px;
+  color: #fff;
+  background: #2a7f93;
+  border: 1px solid #bfeaf3;
+  border-radius: 50%;
+  box-shadow: 0 0 6px rgba(0, 0, 0, 0.5);
+  pointer-events: none;
+}
+
+/* "Shared" tag on the bag's row in the inventory list */
+.ah-party-stash-tag {
+  margin-left: 6px;
+  padding: 0 5px;
+  font-size: 10px;
+  font-weight: bold;
+  text-transform: uppercase;
+  color: #fff;
+  background: #2a7f93;
+  border-radius: 8px;
+  vertical-align: middle;
+}

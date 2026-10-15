@@ -1,0 +1,17 @@
+{
+  "id": "ah-5e-party-stash",
+  "title": "AH 5E Party Stash",
+  "description": "A shared party inventory for D&D 5e. Players carry a weightless Shared Party Stash bag that opens one stash everyone in the world shares, with no item limit.",
+  "version": "0.1.0",
+  "authors": [{ "name": "Adam Hayes" }],
+  "compatibility": { "minimum": "14", "verified": "14" },
+  "relationships": {
+    "systems": [{ "id": "dnd5e", "type": "system", "compatibility": { "minimum": "5.3.0", "verified": "6.0.6" } }]
+  },
+  "esmodules": ["scripts/main.js"],
+  "styles": ["styles/ah-5e-party-stash.css"],
+  "socket": true,
+  "url": "https://github.com/TheAdamHayes/5ePartyStash",
+  "manifest": "https://github.com/TheAdamHayes/5ePartyStash/releases/latest/download/module.json",
+  "download": "https://github.com/TheAdamHayes/5ePartyStash/releases/download/v0.1.0/module.zip"
+}
