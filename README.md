@@ -1,8 +1,8 @@
 # AH 5E Party Stash
 
-A shared party inventory for **Foundry VTT v14** and the **D&D 5e** system (5.3 or newer, tested against the 6.0 code).
+Shared party inventories for **Foundry VTT v14** and the **D&D 5e** system (5.3 or newer, built against 6.1).
 
-Every world gets one shared stash. Players carry a weightless **Shared Party Stash** bag that opens the stash in its own window, using the normal dnd5e bag screen. Anything put in the stash can be taken out by any player in that world. Stashes are never shared between worlds.
+Players carry a weightless stash bag that opens a stash shared by everyone in the world, using the normal dnd5e bag window. A world can have as many stashes as you like (e.g. "Loot", "Potions", "Wagon"), each with its own name, icon, accent colour and tabs. Stashes are never shared between worlds.
 
 ## Install
 
@@ -14,30 +14,68 @@ https://github.com/TheAdamHayes/5ePartyStash/releases/latest/download/module.jso
 
 Enable the module in your world, then **log in as the GM once**. The module sets itself up:
 
-- An actor called **Party Stash** (a group actor) that really holds the items. All players own it so they can use the stash.
-- A bag on that actor, also called **Party Stash**, which is the stash itself.
-- An item in the **Items** sidebar called **Shared Party Stash**, which players drag into their inventory.
+- An actor called **Party Stash** (a group actor) that really holds every stash and its items. All players own it so they can use the stashes without the GM online.
+- A first stash, called **Party Stash**.
+- A folder in the **Items** sidebar called **Party Stashes**, with one item per stash. Players drag these into their inventory.
 
-## Using it
+## Using a stash
 
-1. Drag **Shared Party Stash** from the Items sidebar into a character's inventory.
-2. A red chest with a blue glow and a **Party** label appears next to the character's other bag icons. Clicking it opens the shared stash.
-3. **Put items in:** drag them into the stash window, or drop them on the shared bag icon.
+1. Drag a stash from the **Party Stashes** folder in the Items sidebar into a character's inventory.
+2. Its icon appears next to the character's other bag icons, glowing in the stash's accent colour with its name along the bottom. Click it to open the stash.
+3. **Put items in:** drag them into the stash window, or drop them on the stash's bag icon.
 4. **Take items out:** drag them from the stash window into your inventory.
 
 Items always **move** (they're never duplicated). The GM can hold Ctrl or Alt while dragging to copy instead.
 
-- The bag weighs nothing and never counts towards encumbrance.
-- There's no limit on how many items the stash holds.
-- Removing the bag from your inventory asks you first, and never loses any items. Drag another **Shared Party Stash** in to get access back.
-- Only the GM can delete the real stash, and gets a strong warning first. If it's deleted anyway, the items are kept and a new stash bag is made for them.
+- Stash bags weigh nothing and never count towards encumbrance.
+- There's no limit on how many items a stash holds.
+- Removing a stash bag from your inventory asks you first, and never loses any items. Drag it in again from the Items sidebar to get access back.
+- If a stash's item in the Items sidebar is deleted, it's put back straight away.
 
-## Settings
+## Tabs
 
-- **Stash icon:** the picture used for the shared bag. The default is Foundry's built-in `icons/containers/chest/chest-reinforced-steel-red.webp`.
+Each stash window has tabs along the top: **All**, one per tab you've set up, and **Unsorted** (items not on any tab). Each tab shows how many items are on it.
 
-## Macro
+- Click a tab to show only its items.
+- Items dropped into the stash while a tab is open go on that tab.
+- Drag an item onto a tab to move it there (from the stash, another stash, or a character).
+
+Each tab also has **keywords** (e.g. `sword, axe, bow`). They're saved with the tab, ready for automatic sorting in a future update.
+
+## Editing a stash (the wrench)
+
+Click the **wrench** at the top of a stash window (or the **+** at the end of its tabs) to:
+
+- rename the stash
+- pick an **accent colour**
+- choose an **icon** from 10 built-in Foundry bag and chest icons, or press **Reroll** for 10 more (GMs can also **Browse…** for any image)
+- add, rename, reorder and remove tabs, and set each tab's keywords
+- **Paste layout…** to set the name and tabs from text, like this:
+
+```
+# Bag Name
+## Category Name 1
+*Keywords, separated, by, commas*
+
+## Category Name 2
+*Keywords, separated, by, commas*
+```
+
+- **Create new stash**
+- **Delete stash** (GM only). You choose whether its items move to another stash or are deleted too. The last stash can't be deleted.
+
+## Settings (GM)
+
+- **Players can create and edit stashes:** when off (the default), only GMs see the wrench, make new stashes, and change stash names, icons, colours and tabs. Everyone can always use the stashes and sort items between tabs. When a player makes a stash, its bag goes straight into their assigned character's inventory.
+- **Party stash overview:** a list of every stash with its item count, tabs and who carries it. From here you can open, edit, delete or create stashes, flip the players setting, and **Repair & re-sync** (rebuilds missing sidebar items and updates every carried bag).
+
+## Macros
 
 ```js
-game.modules.get("ah-5e-party-stash").api.open();
+const api = game.modules.get("ah-5e-party-stash").api;
+api.open("Loot");                                  // open a stash by name (or leave empty for the main one)
+api.edit("Loot");                                  // open its editor
+api.create({ name: "Wagon", accent: "#d4a017" });  // make a new stash
+api.give("Loot", game.actors.getName("Hero"));     // give a character that stash's bag
+api.overview();                                    // open the overview
 ```

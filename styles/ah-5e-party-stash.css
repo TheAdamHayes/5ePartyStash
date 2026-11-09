@@ -1,13 +1,16 @@
 /* AH 5E Party Stash */
 
-/* The Shared Party Stash bag tile next to the encumbrance bar */
+/* ------------------------------------------------------------ */
+/*  Character sheet: stash bag tiles and inventory rows          */
+/* ------------------------------------------------------------ */
+
 .dnd5e2 .containers .container.ah-party-stash-proxy {
-  border: 2px solid #4fb3c9;
-  box-shadow: 0 0 8px rgba(79, 179, 201, 0.75);
+  border: 2px solid var(--ah-accent, #4fb3c9);
+  box-shadow: 0 0 8px color-mix(in srgb, var(--ah-accent, #4fb3c9) 75%, transparent);
 }
 
 .dnd5e2 .containers .container.ah-party-stash-proxy:hover {
-  box-shadow: 0 0 12px rgba(79, 179, 201, 1);
+  box-shadow: 0 0 12px var(--ah-accent, #4fb3c9);
   filter: brightness(1.15);
 }
 
@@ -15,19 +18,23 @@
   position: relative;
 }
 
-/* "PARTY" label along the bottom of the tile */
+/* Stash name along the bottom of the tile */
 .dnd5e2 .containers .container .ah-party-stash-label {
   position: absolute;
   left: 0;
   right: 0;
   bottom: 0;
-  padding: 1px 0;
-  font-size: 10px;
+  padding: 1px 2px;
+  font-size: 9px;
   font-weight: bold;
+  line-height: 1.3;
   text-align: center;
   text-transform: uppercase;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
   color: #fff;
-  background: rgba(20, 70, 85, 0.85);
+  background: color-mix(in srgb, var(--ah-accent, #4fb3c9) 55%, #000 45%);
   border-radius: 0 0 3px 3px;
   pointer-events: none;
 }
@@ -40,7 +47,348 @@
   font-weight: bold;
   text-transform: uppercase;
   color: #fff;
-  background: #2a7f93;
+  background: color-mix(in srgb, var(--ah-accent, #4fb3c9) 60%, #000 40%);
   border-radius: 8px;
   vertical-align: middle;
+}
+
+/* ------------------------------------------------------------ */
+/*  Stash window: accent, wrench and tabs                        */
+/* ------------------------------------------------------------ */
+
+.ah-party-stash-sheet {
+  border: 2px solid var(--ah-accent, #4fb3c9);
+}
+
+.ah-party-stash-sheet .window-header {
+  border-bottom: 2px solid var(--ah-accent, #4fb3c9);
+}
+
+.ah-party-stash-sheet .ah-stash-wrench {
+  color: var(--ah-accent, #4fb3c9);
+}
+
+.ah-stash-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin: 0 0 8px;
+  padding: 4px;
+  border-bottom: 2px solid var(--ah-accent, #4fb3c9);
+}
+
+.ah-stash-tabs .ah-stash-tab {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  width: auto;
+  height: 26px;
+  margin: 0;
+  padding: 0 10px;
+  font-size: 12px;
+  line-height: 1;
+  white-space: nowrap;
+  border: 1px solid color-mix(in srgb, var(--ah-accent, #4fb3c9) 50%, transparent);
+  border-radius: 13px;
+  background: transparent;
+  cursor: pointer;
+}
+
+.ah-stash-tabs .ah-stash-tab:hover,
+.ah-stash-tabs .ah-stash-tab.ah-drop-hover {
+  background: color-mix(in srgb, var(--ah-accent, #4fb3c9) 25%, transparent);
+}
+
+.ah-stash-tabs .ah-stash-tab.ah-drop-hover {
+  outline: 2px dashed var(--ah-accent, #4fb3c9);
+}
+
+.ah-stash-tabs .ah-stash-tab.active {
+  color: #fff;
+  background: var(--ah-accent, #4fb3c9);
+  border-color: var(--ah-accent, #4fb3c9);
+}
+
+.ah-stash-tabs .ah-tab-count {
+  min-width: 16px;
+  padding: 1px 4px;
+  font-size: 10px;
+  text-align: center;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.2);
+}
+
+.ah-stash-tabs .ah-tab-edit {
+  padding: 0 8px;
+  border-style: dashed;
+}
+
+/* Rows not on the open tab */
+.ah-cat-hidden {
+  display: none !important;
+}
+
+/* Hide whole sections (Weapons, Equipment...) that have nothing on the open tab */
+.ah-cat-filtering .items-section:not(:has(li.item:not(.ah-cat-hidden):not([hidden]))) {
+  display: none !important;
+}
+
+/* ------------------------------------------------------------ */
+/*  Editor and overview windows                                  */
+/* ------------------------------------------------------------ */
+
+.ah-party-stash-app .window-content {
+  padding: 10px 12px;
+}
+
+.ah-party-stash-app .ah-hint {
+  margin: 0.25rem 0 0.5rem;
+  font-size: 12px;
+  opacity: 0.8;
+}
+
+.ah-party-stash-app fieldset {
+  margin: 0 0 10px;
+  padding: 6px 10px 10px;
+  border: 1px solid color-mix(in srgb, var(--ah-accent, #4fb3c9) 50%, transparent);
+  border-radius: 6px;
+}
+
+.ah-party-stash-app legend {
+  padding: 0 4px;
+  font-weight: bold;
+}
+
+.ah-party-stash-app .ah-inline {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.ah-party-stash-app .ah-inline > button {
+  flex: 0 0 auto;
+  width: auto;
+}
+
+.ah-party-stash-app .ah-danger {
+  color: #c0392b;
+}
+
+.ah-party-stash-app .ah-primary {
+  background: var(--ah-accent, #4fb3c9);
+  color: #fff;
+}
+
+.ah-party-stash-app .ah-icon-btn {
+  flex: 0 0 28px;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.ah-party-stash-app .ah-footer {
+  display: flex;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.ah-party-stash-app .ah-footer > button {
+  flex: 1 1 0;
+}
+
+/* Editor top row */
+.ah-editor-top {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.ah-editor-top .ah-current-icon {
+  flex: 0 0 72px;
+  width: 72px;
+  height: 72px;
+  border: 3px solid var(--ah-accent, #4fb3c9);
+  border-radius: 8px;
+  box-shadow: 0 0 10px color-mix(in srgb, var(--ah-accent, #4fb3c9) 70%, transparent);
+  object-fit: cover;
+}
+
+.ah-editor-fields {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.ah-field {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ah-field > span:first-child {
+  flex: 0 0 100px;
+  font-weight: bold;
+}
+
+.ah-field input[type="text"] {
+  flex: 1;
+}
+
+.ah-field input[type="color"] {
+  width: 48px;
+  height: 28px;
+  padding: 0 2px;
+}
+
+/* Icon picker */
+.ah-icon-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.ah-icon-choice {
+  position: relative;
+  display: block;
+  aspect-ratio: 1;
+  border: 2px solid transparent;
+  border-radius: 6px;
+  cursor: pointer;
+  overflow: hidden;
+}
+
+.ah-icon-choice input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.ah-icon-choice img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border: none;
+}
+
+.ah-icon-choice:hover {
+  border-color: color-mix(in srgb, var(--ah-accent, #4fb3c9) 50%, transparent);
+}
+
+.ah-icon-choice.selected {
+  border-color: var(--ah-accent, #4fb3c9);
+  box-shadow: 0 0 8px var(--ah-accent, #4fb3c9);
+}
+
+/* Tab rows */
+.ah-tab-rows {
+  list-style: none;
+  margin: 0 0 8px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.ah-tab-row {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+}
+
+.ah-tab-row input[name^="cat-name"] {
+  flex: 0 0 150px;
+}
+
+.ah-tab-row input[name^="cat-keywords"] {
+  flex: 1;
+}
+
+.ah-example {
+  margin: 0 0 6px;
+  padding: 6px;
+  font-size: 11px;
+  white-space: pre;
+  background: rgba(0, 0, 0, 0.1);
+  border-radius: 4px;
+}
+
+/* Overview */
+.ah-ov-toggle {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  margin-bottom: 10px;
+  font-size: 13px;
+}
+
+.ah-ov-toggle input {
+  flex: 0 0 auto;
+  margin-top: 2px;
+}
+
+.ah-ov-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 6px;
+}
+
+.ah-ov-table th,
+.ah-ov-table td {
+  padding: 4px 6px;
+  text-align: left;
+  vertical-align: middle;
+  font-size: 13px;
+}
+
+.ah-ov-table tbody tr {
+  border-left: 4px solid var(--ah-accent, #4fb3c9);
+}
+
+.ah-ov-stash {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ah-ov-stash img {
+  width: 36px;
+  height: 36px;
+  border: 2px solid var(--ah-accent, #4fb3c9);
+  border-radius: 4px;
+}
+
+.ah-ov-name {
+  font-weight: bold;
+}
+
+.ah-ov-main {
+  margin-left: 4px;
+  padding: 0 5px;
+  font-size: 10px;
+  font-weight: normal;
+  text-transform: uppercase;
+  border: 1px solid currentColor;
+  border-radius: 8px;
+  opacity: 0.7;
+}
+
+.ah-ov-num {
+  text-align: center !important;
+}
+
+.ah-ov-actions {
+  white-space: nowrap;
+  text-align: right !important;
+}
+
+.ah-ov-actions .ah-icon-btn {
+  display: inline-flex;
 }
