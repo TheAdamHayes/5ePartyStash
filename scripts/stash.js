@@ -433,6 +433,12 @@ export async function updateStash(stash, { name, img, accent, categories }) {
   return stash.update(update, INTERNAL);
 }
 
+/** Save just a stash's tabs (used by the in-window tab editing). */
+export async function saveTabs(stash, categories) {
+  const { accent } = getStashConfig(stash);
+  return updateStash(stash, { name: stash.name, img: stash.img, accent, categories });
+}
+
 /** Put a bag for this stash in a character's inventory. */
 export async function giveBag(stash, actor) {
   if ( !stash || !actor || isStashActor(actor) ) return null;

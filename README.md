@@ -40,13 +40,19 @@ Items always **move** (they're never duplicated). The GM can hold Ctrl or Alt wh
 
 ## Tabs
 
-Each stash window has tabs along the top: **All**, one per tab you've set up, and **Unsorted** (items not on any tab). Each tab shows how many items are on it.
+Each stash window has folder-style tabs along the top: **All**, one per tab you've set up, and **Unsorted** (items not on any tab). The open tab is filled with the stash's accent colour and joins the line below it. Each tab shows how many items are on it.
 
 - Click a tab to show only its items.
 - Items dropped into the stash while a tab is open go on that tab.
 - Drag an item onto a tab to move it there (from the stash, another stash, or a character).
 
-Each tab also has **keywords** (e.g. `sword, axe, bow`). They're saved with the tab, ready for automatic sorting in a future update.
+If you're allowed to edit stashes (see Settings), you can also change tabs right there in the stash window:
+
+- **+** adds a new tab and puts you straight into typing its name. Press Enter (or click away) to keep it, Escape to cancel.
+- **Double-click** a tab to rename it.
+- **Right-click** a tab for **Rename**, **Keywords…**, **Move left**, **Move right** and **Delete tab** (its items move to Unsorted; nothing is lost).
+
+Each tab also has **keywords** (e.g. `sword, axe, bow`). They're saved with the tab, ready for automatic sorting in a future update. Hover over a tab to see them.
 
 ## Editing a stash (the wrench)
 

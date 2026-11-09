@@ -270,3 +270,39 @@ export function moveEntry(arr, index, delta) {
   [out[index], out[to]] = [out[to], out[index]];
   return out;
 }
+
+/* -------------------------------------------- */
+/*  Editing tabs in place (stash window)        */
+/* -------------------------------------------- */
+
+/** Copy a tab list so edits never change the stored one. */
+const copyTabs = categories => (categories ?? []).map(c => ({ id: c.id, name: c.name, keywords: [...(c.keywords ?? [])] }));
+
+/** Add a tab at the end. Returns the new list, or the old one unchanged if the name is blank. */
+export function addTab(categories, name, id) {
+  const clean = String(name ?? "").trim();
+  if ( !clean ) return copyTabs(categories);
+  return [...copyTabs(categories), { id, name: clean, keywords: [] }];
+}
+
+/** Rename a tab. A blank name leaves it as it was. */
+export function renameTab(categories, id, name) {
+  const clean = String(name ?? "").trim();
+  return copyTabs(categories).map(c => ((c.id === id) && clean ? { ...c, name: clean } : c));
+}
+
+/** Set a tab's keywords from "a, b, c". */
+export function setTabKeywords(categories, id, keywords) {
+  return copyTabs(categories).map(c => (c.id === id ? { ...c, keywords: parseKeywords(keywords) } : c));
+}
+
+/** Move a tab left (-1) or right (+1). */
+export function moveTab(categories, id, delta) {
+  const list = copyTabs(categories);
+  return moveEntry(list, list.findIndex(c => c.id === id), delta);
+}
+
+/** Remove a tab (its items show under Unsorted). */
+export function removeTab(categories, id) {
+  return copyTabs(categories).filter(c => c.id !== id);
+}
