@@ -1,6 +1,6 @@
 import { MODULE_ID, SETTINGS, DEFAULT_ICON, ICON_POOL, STASH_NAME, FOLDER_NAME } from "./constants.js";
 import {
-  FLAGS, TAB_ALL, DEFAULT_ACCENT, weightlessSystemData, findLooseItems, normalizeConfig, categoryForDrop, pickIcons,
+  FLAGS, TAB_ALL, DEFAULT_ACCENT, countTabs, weightlessSystemData, findLooseItems, normalizeConfig, categoryForDrop, pickIcons,
   escapeHTML
 } from "./logic.js";
 
@@ -93,12 +93,36 @@ export function canManage(user=game.user) {
 
 const activeTabs = new Map();
 
+/** Remembered in this browser, so a stash opens on the tab you last used. */
+const tabKey = stashId => `${MODULE_ID}.tab.${game.world?.id ?? ""}.${stashId}`;
+
 export function getActiveTab(stashId) {
+  if ( !activeTabs.has(stashId) ) {
+    let saved = null;
+    try {
+      saved = globalThis.localStorage?.getItem(tabKey(stashId));
+    } catch { /* storage blocked: just use "All" */ }
+    activeTabs.set(stashId, saved || TAB_ALL);
+  }
   return activeTabs.get(stashId) ?? TAB_ALL;
 }
 
 export function setActiveTab(stashId, tabId) {
   activeTabs.set(stashId, tabId || TAB_ALL);
+  try {
+    globalThis.localStorage?.setItem(tabKey(stashId), tabId || TAB_ALL);
+  } catch { /* storage blocked: still works for this session */ }
+}
+
+/** Items directly in a stash. */
+export function stashContents(stash) {
+  return stash?.actor?.items.filter(i => i._source.system?.container === stash.id) ?? [];
+}
+
+/** How many items are on each tab of a stash. */
+export function stashCounts(stash) {
+  const { categories } = getStashConfig(stash);
+  return countTabs(stashContents(stash).map(i => i.getFlag(MODULE_ID, FLAGS.CATEGORY) ?? null), categories);
 }
 
 /** The tab an item dropped into this stash right now should go in, or null. */

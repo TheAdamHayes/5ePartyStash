@@ -306,3 +306,29 @@ export function moveTab(categories, id, delta) {
 export function removeTab(categories, id) {
   return copyTabs(categories).filter(c => c.id !== id);
 }
+
+/** Move tab `fromId` to where tab `toId` is (dragging one tab onto another). */
+export function reorderTab(categories, fromId, toId) {
+  const list = copyTabs(categories);
+  const from = list.findIndex(c => c.id === fromId);
+  const to = list.findIndex(c => c.id === toId);
+  if ( (from < 0) || (to < 0) || (from === to) ) return list;
+  const [moved] = list.splice(from, 1);
+  list.splice(to, 0, moved);
+  return list;
+}
+
+/** Short summary for a stash bag's tooltip, e.g. "12 items · Weapons 4 · Potions 3 · Unsorted 5". */
+export function summarizeCounts(counts, categories) {
+  const total = counts?.[TAB_ALL] ?? 0;
+  const parts = [`${total} item${total === 1 ? "" : "s"}`];
+  for ( const c of categories ?? [] ) parts.push(`${c.name} ${counts?.[c.id] ?? 0}`);
+  if ( categories?.length && counts?.[TAB_UNSORTED] ) parts.push(`Unsorted ${counts[TAB_UNSORTED]}`);
+  return parts.join(" · ");
+}
+
+/** Preset accent colours offered in the stash editor. */
+export const ACCENT_SWATCHES = Object.freeze([
+  "#4fb3c9", "#3b82f6", "#8b5cf6", "#d946ef", "#ef4444",
+  "#f97316", "#eab308", "#22c55e", "#14b8a6", "#94a3b8"
+]);

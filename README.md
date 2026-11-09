@@ -42,26 +42,41 @@ Items always **move** (they're never duplicated). The GM can hold Ctrl or Alt wh
 
 Each stash window has folder-style tabs along the top: **All**, one per tab you've set up, and **Unsorted** (items not on any tab). The open tab is filled with the stash's accent colour and joins the line below it. Each tab shows how many items are on it.
 
-- Click a tab to show only its items.
+- Click a tab to show only its items. The stash remembers which tab you had open.
+- On **All**, each item shows a small label for the tab it's on.
 - Items dropped into the stash while a tab is open go on that tab.
 - Drag an item onto a tab to move it there (from the stash, another stash, or a character).
+- An empty tab shows a short message instead of a blank list.
+- Lots of tabs? Scroll the tab row with the mouse wheel.
+- Keyboard: click a tab, then use **← →**, **Home** and **End** to move between tabs.
 
 If you're allowed to edit stashes (see Settings), you can also change tabs right there in the stash window:
 
 - **+** adds a new tab and puts you straight into typing its name. Press Enter (or click away) to keep it, Escape to cancel.
-- **Double-click** a tab to rename it.
-- **Right-click** a tab for **Rename**, **Keywords…**, **Move left**, **Move right** and **Delete tab** (its items move to Unsorted; nothing is lost).
+- **Double-click** a tab (or press **F2**) to rename it.
+- **Drag** a tab onto another tab to reorder them.
+- **Right-click** a tab for **Rename**, **Keywords…**, **Move left**, **Move right** and **Delete tab**.
+- Deleting a tab (from the menu, or the **Delete** key) moves its items to Unsorted, and an **Undo** bar appears for a few seconds to put it straight back.
 
 Each tab also has **keywords** (e.g. `sword, axe, bow`). They're saved with the tab, ready for automatic sorting in a future update. Hover over a tab to see them.
 
+## Right-click shortcuts on items
+
+- **In a stash:** right-click an item for **Move to tab: …**, **Move to Unsorted**, and **Move to stash: …** (any other stash).
+- **On a character sheet:** right-click an item for **Send to …** for every stash that character carries.
+
+## On the character sheet
+
+A stash bag shows the stash's picture, colour and name, plus a bubble with how many items are in it. Hover over it for a summary of every tab's count.
+
 ## Editing a stash (the wrench)
 
-Click the **wrench** at the top of a stash window (or the **+** at the end of its tabs) to:
+Click the **wrench** at the top of a stash window to open the editor. A live preview at the top shows the bag exactly as it will look as you change things.
 
 - rename the stash
-- pick an **accent colour**
+- pick an **accent colour** from the swatches, or any colour with the colour picker
 - choose an **icon** from 10 built-in Foundry bag and chest icons, or press **Reroll** for 10 more (GMs can also **Browse…** for any image)
-- add, rename, reorder and remove tabs, and set each tab's keywords
+- add, rename, reorder (drag the grip or use the arrows) and remove tabs, and set each tab's keywords. Pressing **Enter** in a tab name adds another tab below it.
 - **Paste layout…** to set the name and tabs from text, like this:
 
 ```
@@ -73,14 +88,16 @@ Click the **wrench** at the top of a stash window (or the **+** at the end of it
 *Keywords, separated, by, commas*
 ```
 
-- **Create new stash**
+- **New stash**
 - **Delete stash** (GM only). You choose whether its items move to another stash or are deleted too. The last stash can't be deleted.
+
+A yellow dot on **Save** means you have unsaved changes. **Ctrl+S** saves.
 
 ## Settings (GM)
 
 - **Players can create and edit stashes:** when off (the default), only GMs see the wrench, make new stashes, and change stash names, icons, colours and tabs. Everyone can always use the stashes and sort items between tabs. If a player makes a stash while no GM is online, its bag goes into their own assigned character; everyone else gets it once a GM gives it out.
 - **Give new stashes to every player character:** on by default. A "player character" is any character a player owns, plus each player's assigned character.
-- **Party stash overview:** a list of every stash with its item count, tabs and who carries it. From here you can give a stash to everyone or take it back, open, edit, delete or create stashes, flip both settings above, and **Repair & re-sync** (rebuilds missing sidebar items and updates every carried bag).
+- **Party stash overview:** a card for every stash with its item count, tab counts and who carries it. From here you can give a stash to everyone or take it back, open, edit, delete or create stashes, flip both settings above, and **Repair & re-sync** (rebuilds missing sidebar items and updates every carried bag).
 
 ## Macros
 
