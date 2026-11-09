@@ -160,6 +160,48 @@ export function isInternal(options) {
 
 let queue = Promise.resolve();
 
+/** The collection an update is aimed at: an actor's items, or the Items sidebar. */
+const itemsOf = owner => (owner ? owner.items : game.items);
+
+/**
+ * Update items, skipping any that no longer exist. If the batch fails, try them one at a time so one
+ * bad item can't stop the rest, and log exactly which item failed.
+ */
+async function safeUpdate(owner, updates, step) {
+  const coll = itemsOf(owner);
+  const valid = updates.filter(u => coll.has(u._id));
+  if ( !valid.length ) return;
+  try {
+    if ( owner ) await owner.updateEmbeddedDocuments("Item", valid, INTERNAL);
+    else await Item.implementation.updateDocuments(valid, INTERNAL);
+  } catch ( err ) {
+    console.warn(`${MODULE_ID} | ${step}: batch update failed, retrying one at a time.`, err);
+    for ( const { _id, ...changes } of valid ) {
+      const doc = coll.get(_id);
+      if ( !doc ) continue;
+      try {
+        await doc.update(changes, INTERNAL);
+      } catch ( e ) {
+        console.warn(`${MODULE_ID} | ${step}: could not update "${doc.name}" [${_id}] on ${owner?.name ?? "the Items sidebar"}.`, changes, e);
+      }
+    }
+  }
+}
+
+/** Delete items, skipping any that are already gone. */
+async function safeDelete(owner, ids, step) {
+  const coll = itemsOf(owner);
+  for ( const id of ids ) {
+    const doc = coll.get(id);
+    if ( !doc ) continue;
+    try {
+      await doc.delete(INTERNAL);
+    } catch ( e ) {
+      console.warn(`${MODULE_ID} | ${step}: could not delete "${doc.name}" [${id}].`, e);
+    }
+  }
+}
+
 /**
  * Make sure everything exists and matches up. Safe to call any time on the GM's client:
  * - the stash actor, and at least one stash on it
@@ -170,16 +212,32 @@ let queue = Promise.resolve();
  */
 export function ensureStash() {
   if ( !game.user.isGM ) return Promise.resolve();
-  queue = queue.then(runEnsure).catch(err => {
+  // If the world is open as GM in several tabs of the same browser, they take turns instead of running setup
+  // at the same time (which made them trip over each other). Falls back to running directly if unsupported.
+  const run = () => (navigator.locks?.request
+    ? navigator.locks.request(`${MODULE_ID}-setup-${game.world?.id ?? ""}`, () => runEnsure())
+    : runEnsure());
+  queue = queue.then(run).catch(err => {
     console.error(`${MODULE_ID} | Setup failed.`, err);
     ui.notifications.error(`${STASH_NAME}: setup failed. See the browser console (F12) for details.`);
   });
   return queue;
 }
 
+/** Run one setup step; if it fails, log it and carry on with the next step. */
+async function step(name, fn) {
+  try {
+    await fn();
+    return true;
+  } catch ( err ) {
+    console.error(`${MODULE_ID} | Setup step "${name}" failed. The other steps still ran.`, err);
+    ui.notifications.warn(`${STASH_NAME}: setup step "${name}" had a problem. Your stash items are safe. See the browser console (F12) for details.`);
+    return false;
+  }
+}
+
 async function runEnsure() {
   const OWNER = CONST.DOCUMENT_OWNERSHIP_LEVELS.OWNER;
-  const OBSERVER = CONST.DOCUMENT_OWNERSHIP_LEVELS.OBSERVER;
 
   // 1. The actor that really holds everything
   let actor = getStashActor();
@@ -211,19 +269,28 @@ async function runEnsure() {
     if ( (stash === main) && !stash.getFlag(MODULE_ID, FLAGS.DEFAULT) ) fix[`flags.${MODULE_ID}.${FLAGS.DEFAULT}`] = true;
     if ( !foundry.utils.isEmpty(fix) ) stashFixes.push({ _id: stash.id, ...fix });
   }
-  if ( stashFixes.length ) await actor.updateEmbeddedDocuments("Item", stashFixes, INTERNAL);
+  await step("repair stashes", () => safeUpdate(actor, stashFixes, "repair stashes"));
 
   // 3. Put back any loose items (e.g. if a stash bag was deleted but its contents kept)
-  const loose = findLooseItems(actor.items.map(i => ({
-    id: i.id, container: i._source.system?.container ?? null, flags: i.flags, physical: isPhysical(i)
-  })), MODULE_ID);
-  if ( loose.length ) {
-    await actor.updateEmbeddedDocuments("Item", loose.map(_id => ({
+  await step("put back loose items", () => {
+    const loose = findLooseItems(actor.items.map(i => ({
+      id: i.id, container: i._source.system?.container ?? null, flags: i.flags, physical: isPhysical(i)
+    })), MODULE_ID);
+    return safeUpdate(actor, loose.map(_id => ({
       _id, "system.container": main.id, [`flags.${MODULE_ID}.${FLAGS.CATEGORY}`]: null
-    })), INTERNAL);
-  }
+    })), "put back loose items");
+  });
 
-  // 4. One sidebar item per stash, in the "Party Stashes" folder
+  await step("sidebar items", () => syncTemplates(stashes, main));
+
+  // 5. Bags that characters carry: point at a real stash, and match its name and picture
+  await step("carried bags", () => syncCarriedBags());
+}
+
+/** 4. One sidebar item per stash, in the "Party Stashes" folder. */
+async function syncTemplates(stashes, main) {
+  const OBSERVER = CONST.DOCUMENT_OWNERSHIP_LEVELS.OBSERVER;
+
   let folder = game.folders.find(f => (f.type === "Item") && f.getFlag(MODULE_ID, "folder"));
   if ( !folder ) {
     folder = await Folder.implementation.create({
@@ -239,7 +306,9 @@ async function runEnsure() {
     let sid = t.getFlag(MODULE_ID, FLAGS.STASH_ID);
     if ( !sid ) sid = main.id; // Made by an older version: belongs to the main stash
     const stash = ids.has(sid) ? getStash(sid) : null;
-    if ( !stash || seen.has(sid) ) {
+    // Not this stash's item, a duplicate, or outside the folder: replace it with a fresh one.
+    // (Moving a bag between folders makes dnd5e try to move its contents as well, so we don't move it.)
+    if ( !stash || seen.has(sid) || (t.folder?.id !== folder.id) ) {
       templateDeletes.push(t.id);
       continue;
     }
@@ -248,11 +317,10 @@ async function runEnsure() {
     if ( t.getFlag(MODULE_ID, FLAGS.STASH_ID) !== sid ) fix[`flags.${MODULE_ID}.${FLAGS.STASH_ID}`] = sid;
     if ( t.name !== stash.name ) fix.name = stash.name;
     if ( t.img !== stash.img ) fix.img = stash.img;
-    if ( t.folder?.id !== folder.id ) fix.folder = folder.id;
     if ( !foundry.utils.isEmpty(fix) ) templateUpdates.push({ _id: t.id, ...fix });
   }
-  if ( templateDeletes.length ) await Item.implementation.deleteDocuments(templateDeletes, INTERNAL);
-  if ( templateUpdates.length ) await Item.implementation.updateDocuments(templateUpdates, INTERNAL);
+  await safeDelete(null, templateDeletes, "sidebar items");
+  await safeUpdate(null, templateUpdates, "sidebar items");
   const missing = stashes.filter(s => !seen.has(s.id));
   if ( missing.length ) {
     await Item.implementation.createDocuments(missing.map(s => bagData({
@@ -260,9 +328,6 @@ async function runEnsure() {
       flags: { [FLAGS.PROXY]: true, [FLAGS.TEMPLATE]: true, [FLAGS.STASH_ID]: s.id }
     })), INTERNAL);
   }
-
-  // 5. Bags that characters carry: point at a real stash, and match its name and picture
-  await syncCarriedBags();
 }
 
 /** Bring carried bags in line with their stash (name, picture, which stash). Removes bags for deleted stashes. */
@@ -287,8 +352,8 @@ export async function syncCarriedBags() {
       if ( p.img !== stash.img ) fix.img = stash.img;
       if ( !foundry.utils.isEmpty(fix) ) updates.push({ _id: p.id, ...fix });
     }
-    if ( deletes.length ) await a.deleteEmbeddedDocuments("Item", deletes, INTERNAL);
-    if ( updates.length ) await a.updateEmbeddedDocuments("Item", updates, INTERNAL);
+    await safeDelete(a, deletes, "carried bags");
+    await safeUpdate(a, updates, "carried bags");
   }
 }
 
