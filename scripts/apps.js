@@ -3,7 +3,7 @@ import {
   DEFAULT_ACCENT, escapeHTML, isValidColor, layoutToText, moveEntry, parseKeywords, parseLayoutText, pickIcons
 } from "./logic.js";
 import {
-  canManage, createStash, deleteStash, ensureStash, getStash, getStashActor, getStashConfig, getStashes,
+  getPlayerCharacters, giveToEveryone, takeFromEveryone, canManage, createStash, deleteStash, ensureStash, getStash, getStashActor, getStashConfig, getStashes,
   getProxies, isStashActor, openStash, stashForProxy, updateStash
 } from "./stash.js";
 
@@ -310,7 +310,9 @@ export class StashOverview extends ApplicationV2 {
       edit: StashOverview._onEdit,
       remove: StashOverview._onRemove,
       newStash: StashOverview._onNewStash,
-      repair: StashOverview._onRepair
+      repair: StashOverview._onRepair,
+      giveAll: StashOverview._onGiveAll,
+      takeAll: StashOverview._onTakeAll
     }
   };
 
@@ -349,6 +351,8 @@ export class StashOverview extends ApplicationV2 {
           <td>${tabs || "<em>None</em>"}</td>
           <td>${who.length ? who.map(escapeHTML).join(", ") : "<em>Nobody</em>"}</td>
           <td class="ah-ov-actions">
+            <button type="button" class="ah-icon-btn" data-action="giveAll" data-tooltip="Give this stash's bag to every player character"><i class="fa-solid fa-user-plus"></i></button>
+            <button type="button" class="ah-icon-btn" data-action="takeAll" data-tooltip="Take this stash's bag back from everyone (no items are lost)" ${who.length ? "" : "disabled"}><i class="fa-solid fa-user-minus"></i></button>
             <button type="button" class="ah-icon-btn" data-action="open" data-tooltip="Open stash"><i class="fa-solid fa-box-open"></i></button>
             <button type="button" class="ah-icon-btn" data-action="edit" data-tooltip="Edit stash"><i class="fa-solid fa-wrench"></i></button>
             <button type="button" class="ah-icon-btn ah-danger" data-action="remove" data-tooltip="Delete stash" ${stashes.length < 2 ? "disabled" : ""}><i class="fa-solid fa-trash"></i></button>
@@ -357,12 +361,19 @@ export class StashOverview extends ApplicationV2 {
     }).join("");
 
     const players = !!game.settings.get(MODULE_ID, SETTINGS.PLAYERS_MANAGE);
+    const give = !!game.settings.get(MODULE_ID, SETTINGS.AUTO_GIVE);
+    const party = getPlayerCharacters().map(a => escapeHTML(a.name)).join(", ");
     return `
       <div class="ah-overview">
         <label class="ah-ov-toggle">
           <input type="checkbox" name="playersManage" ${players ? "checked" : ""}>
           <span><strong>Players can create and edit stashes.</strong> When off, only GMs can make new stashes and change
           stash names, icons, colours and tabs. Everyone can still use the stashes and sort items between tabs.</span>
+        </label>
+        <label class="ah-ov-toggle">
+          <input type="checkbox" name="autoGive" ${give ? "checked" : ""}>
+          <span><strong>Give new stashes to every player character.</strong> A new stash's bag goes straight into
+          their inventories. Player characters: ${party || "<em>none found (a character counts once a player owns it)</em>"}.</span>
         </label>
         <table class="ah-ov-table">
           <thead><tr><th>Stash</th><th>Items</th><th>Tabs</th><th>Carried by</th><th></th></tr></thead>
@@ -381,6 +392,9 @@ export class StashOverview extends ApplicationV2 {
     content.innerHTML = result;
     content.querySelector('input[name="playersManage"]')?.addEventListener("change", ev => {
       game.settings.set(MODULE_ID, SETTINGS.PLAYERS_MANAGE, ev.target.checked);
+    });
+    content.querySelector('input[name="autoGive"]')?.addEventListener("change", ev => {
+      game.settings.set(MODULE_ID, SETTINGS.AUTO_GIVE, ev.target.checked);
     });
   }
 
@@ -404,6 +418,37 @@ export class StashOverview extends ApplicationV2 {
   static async _onNewStash() {
     const stash = await createStash();
     if ( stash ) openEditor(stash);
+    this.render();
+  }
+
+  static async _onGiveAll(event, target) {
+    const stash = StashOverview.#stashFrom(target);
+    if ( !stash ) return;
+    if ( !getPlayerCharacters().length ) {
+      ui.notifications.warn(`${STASH_NAME}: no player characters found. A character counts once a player owns it.`);
+      return;
+    }
+    const given = await giveToEveryone(stash);
+    ui.notifications.info(given.length
+      ? `${STASH_NAME}: gave "${stash.name}" to ${given.join(", ")}.`
+      : `${STASH_NAME}: every player character already has "${stash.name}".`);
+    this.render();
+  }
+
+  static async _onTakeAll(event, target) {
+    const stash = StashOverview.#stashFrom(target);
+    if ( !stash ) return;
+    const yes = await DialogV2.confirm({
+      window: { title: `Take back "${stash.name}"?`, icon: "fa-solid fa-user-minus" },
+      content: `<p>Remove the <strong>${escapeHTML(stash.name)}</strong> bag from every character who carries it?</p>
+        <p>No items are lost. Everything stays in the stash, and you can give the bags out again at any time.</p>`,
+      yes: { label: "Take Back", icon: "fa-solid fa-user-minus" },
+      no: { label: "Cancel", default: true },
+      rejectClose: false
+    });
+    if ( !yes ) return;
+    const taken = await takeFromEveryone(stash);
+    ui.notifications.info(`${STASH_NAME}: took "${stash.name}" back from ${taken.length ? taken.join(", ") : "nobody"}.`);
     this.render();
   }
 

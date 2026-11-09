@@ -150,6 +150,22 @@ function bagRepairs(item) {
 /** Options passed on the module's own housekeeping changes, so the hooks leave them alone. */
 const INTERNAL = { [MODULE_ID]: { internal: true, confirmed: true } };
 
+/** Same, but also marks a brand-new stash so the GM's client hands its bag out to everyone. */
+const NEW_STASH = { [MODULE_ID]: { internal: true, confirmed: true, newStash: true } };
+
+export function isNewStash(options) {
+  return !!options?.[MODULE_ID]?.newStash;
+}
+
+/** Should new stashes go straight into every player character's inventory? */
+export function autoGive() {
+  try {
+    return !!game.settings.get(MODULE_ID, SETTINGS.AUTO_GIVE);
+  } catch {
+    return false;
+  }
+}
+
 export function isInternal(options) {
   return !!options?.[MODULE_ID]?.internal;
 }
@@ -258,7 +274,7 @@ async function runEnsure() {
     await actor.createEmbeddedDocuments("Item", [bagData({
       name: STASH_NAME, img: DEFAULT_ICON,
       flags: { [FLAGS.STASH]: true, [FLAGS.DEFAULT]: true, [FLAGS.CONFIG]: { accent: DEFAULT_ACCENT, categories: [] } }
-    })], INTERNAL);
+    })], NEW_STASH);
     stashes = getStashes();
   }
   const main = getDefaultStash();
@@ -388,12 +404,13 @@ export async function createStash({ name, img, accent, categories }={}) {
     name: finalName,
     img: img || pickIcons(ICON_POOL, 1, getStashes().map(s => s.img))[0],
     flags: { [FLAGS.STASH]: true, [FLAGS.CONFIG]: config }
-  })], INTERNAL);
+  })], NEW_STASH);
   if ( !stash ) return null;
 
-  // A player gets the new bag straight away (the GM's client adds the sidebar item for everyone else).
+  // The GM's client makes the sidebar item and (if switched on) gives every player character the bag.
+  // If no GM is online, or bags aren't handed out automatically, a player at least gets it themselves.
   const character = game.user.isGM ? null : game.user.character;
-  if ( character?.isOwner ) await giveBag(stash, character);
+  if ( character?.isOwner && (!game.users.activeGM || !autoGive()) ) await giveBag(stash, character);
   ui.notifications.info(`${STASH_NAME}: created "${stash.name}".`);
   return stash;
 }
@@ -424,6 +441,55 @@ export async function giveBag(stash, actor) {
     name: stash.name, img: stash.img, flags: { [FLAGS.PROXY]: true, [FLAGS.STASH_ID]: stash.id }
   })]);
   return bag;
+}
+
+/**
+ * Characters that belong to players: every character a non-GM player owns, plus each player's assigned character.
+ * @returns {Actor[]}
+ */
+export function getPlayerCharacters() {
+  const players = game.users.filter(u => !u.isGM);
+  const out = new Set();
+  for ( const u of players ) if ( u.character && !isStashActor(u.character) ) out.add(u.character);
+  for ( const a of game.actors ) {
+    if ( (a.type !== "character") || isStashActor(a) ) continue;
+    if ( players.some(u => a.testUserPermission(u, "OWNER")) ) out.add(a);
+  }
+  return [...out].sort((a, b) => a.name.localeCompare(b.name));
+}
+
+/**
+ * Put this stash's bag in every player character's inventory (GM only). Characters who already have it are skipped.
+ * @returns {Promise<string[]>}  Names of the characters who got a bag.
+ */
+export async function giveToEveryone(stash) {
+  if ( !stash || !game.user.isGM ) return [];
+  const given = [];
+  for ( const actor of getPlayerCharacters() ) {
+    try {
+      if ( await giveBag(stash, actor) ) given.push(actor.name);
+    } catch ( err ) {
+      console.warn(`${MODULE_ID} | Could not give "${stash.name}" to ${actor.name}.`, err);
+    }
+  }
+  return given;
+}
+
+/**
+ * Take this stash's bag back from every character (GM only). No stash items are lost.
+ * @returns {Promise<string[]>}  Names of the characters whose bag was removed.
+ */
+export async function takeFromEveryone(stash) {
+  if ( !stash || !game.user.isGM ) return [];
+  const taken = [];
+  for ( const actor of game.actors ) {
+    if ( isStashActor(actor) ) continue;
+    const ids = getProxies(actor).filter(p => stashForProxy(p)?.id === stash.id).map(p => p.id);
+    if ( !ids.length ) continue;
+    await safeDelete(actor, ids, "take bags back");
+    taken.push(actor.name);
+  }
+  return taken;
 }
 
 /**

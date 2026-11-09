@@ -69,5 +69,6 @@ export const ICON_CHOICES = 10;
 
 export const SETTINGS = Object.freeze({
   PLAYERS_MANAGE: "playersManage",
+  AUTO_GIVE: "autoGive",
   OVERVIEW: "overview"
 });

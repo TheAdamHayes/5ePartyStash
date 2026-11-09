@@ -1,7 +1,7 @@
 import { MODULE_ID, STASH_NAME, FOLDER_NAME } from "./constants.js";
 import { FLAGS, decideDropBehavior, sanitizeBagChanges, weightlessSystemData, escapeHTML } from "./logic.js";
 import {
-  canManage, deleteStash, dropCategory, ensureStash, getStash, getStashActor, getStashes, getProxies, isInternal,
+  autoGive, giveToEveryone, isNewStash, canManage, deleteStash, dropCategory, ensureStash, getStash, getStashActor, getStashes, getProxies, isInternal,
   isProxy, isStash, isStashActor, isTemplate, openStash, stashForProxy, transferToStash
 } from "./stash.js";
 
@@ -250,9 +250,15 @@ export function registerHooks() {
 
   const isActiveGM = () => game.user.isGM && (game.users.activeGM?.id === game.user.id);
 
-  // A new stash (possibly made by a player): give it a sidebar item.
-  Hooks.on("createItem", item => {
-    if ( isStash(item) && isActiveGM() ) ensureStash();
+  // A new stash (possibly made by a player): give it a sidebar item, and hand its bag to every
+  // player character if that's switched on in the overview.
+  Hooks.on("createItem", async (item, options) => {
+    if ( !isStash(item) || !isActiveGM() ) return;
+    await ensureStash();
+    if ( isNewStash(options) && autoGive() ) {
+      const given = await giveToEveryone(item);
+      if ( given.length ) ui.notifications.info(`${STASH_NAME}: gave "${item.name}" to ${given.join(", ")}.`);
+    }
   });
 
   // A stash renamed or given a new picture: update its sidebar item and carried bags.

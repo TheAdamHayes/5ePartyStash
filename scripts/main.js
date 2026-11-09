@@ -22,6 +22,16 @@ Hooks.once("init", () => {
     }
   });
 
+  game.settings.register(MODULE_ID, SETTINGS.AUTO_GIVE, {
+    name: "Give new stashes to every player character",
+    hint: "When a new stash is made, its bag is put straight into the inventory of every character a player owns. You can also give or take back any stash's bags from the Stash Overview.",
+    scope: "world",
+    config: true,
+    type: Boolean,
+    default: true,
+    onChange: () => refreshOverviews()
+  });
+
   game.settings.registerMenu(MODULE_ID, SETTINGS.OVERVIEW, {
     name: "Party stash overview",
     label: "Open Stash Overview",

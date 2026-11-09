@@ -18,9 +18,15 @@ Enable the module in your world, then **log in as the GM once**. The module sets
 - A first stash, called **Party Stash**.
 - A folder in the **Items** sidebar called **Party Stashes**, with one item per stash. Players drag these into their inventory.
 
+## Getting the bags to players
+
+- **Automatically:** with **Give new stashes to every player character** on (the default), a new stash's bag goes straight into the inventory of every character a player owns.
+- **From the overview:** in **Stash Overview**, each stash has a **Give to everyone** button (puts its bag in every player character's inventory, skipping anyone who already has it) and a **Take back** button (removes it from everyone; no items are lost).
+- **By hand:** drag a stash from the **Party Stashes** folder in the Items sidebar onto a character.
+
 ## Using a stash
 
-1. Drag a stash from the **Party Stashes** folder in the Items sidebar into a character's inventory.
+1. Make sure the character has the stash's bag (see above).
 2. Its icon appears next to the character's other bag icons, glowing in the stash's accent colour with its name along the bottom. Click it to open the stash.
 3. **Put items in:** drag them into the stash window, or drop them on the stash's bag icon.
 4. **Take items out:** drag them from the stash window into your inventory.
@@ -66,8 +72,9 @@ Click the **wrench** at the top of a stash window (or the **+** at the end of it
 
 ## Settings (GM)
 
-- **Players can create and edit stashes:** when off (the default), only GMs see the wrench, make new stashes, and change stash names, icons, colours and tabs. Everyone can always use the stashes and sort items between tabs. When a player makes a stash, its bag goes straight into their assigned character's inventory.
-- **Party stash overview:** a list of every stash with its item count, tabs and who carries it. From here you can open, edit, delete or create stashes, flip the players setting, and **Repair & re-sync** (rebuilds missing sidebar items and updates every carried bag).
+- **Players can create and edit stashes:** when off (the default), only GMs see the wrench, make new stashes, and change stash names, icons, colours and tabs. Everyone can always use the stashes and sort items between tabs. If a player makes a stash while no GM is online, its bag goes into their own assigned character; everyone else gets it once a GM gives it out.
+- **Give new stashes to every player character:** on by default. A "player character" is any character a player owns, plus each player's assigned character.
+- **Party stash overview:** a list of every stash with its item count, tabs and who carries it. From here you can give a stash to everyone or take it back, open, edit, delete or create stashes, flip both settings above, and **Repair & re-sync** (rebuilds missing sidebar items and updates every carried bag).
 
 ## Macros
 
