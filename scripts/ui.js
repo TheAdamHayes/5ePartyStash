@@ -191,6 +191,28 @@ function applyFilter(root, stash) {
   }
 }
 
+/* ---------- Scrolling the tab row ---------- */
+
+/**
+ * Scroll the tab row so a tab is fully visible and clear of the faded edges.
+ * Near either end it scrolls all the way, so the fade on that side switches off.
+ */
+function revealTab(nav, el, smooth=false) {
+  if ( !nav || !el?.isConnected ) return;
+  const pad = 34;
+  const nr = nav.getBoundingClientRect();
+  const r = el.getBoundingClientRect();
+  let delta = 0;
+  if ( r.left < nr.left + pad ) delta = r.left - (nr.left + pad);
+  else if ( r.right > nr.right - pad ) delta = r.right - (nr.right - pad);
+  if ( !delta ) return;
+  const max = nav.scrollWidth - nav.clientWidth;
+  let target = nav.scrollLeft + delta;
+  if ( target < pad ) target = 0;
+  if ( target > max - pad ) target = max;
+  nav.scrollTo({ left: Math.min(max, Math.max(0, target)), behavior: smooth ? "smooth" : "auto" });
+}
+
 /* ---------- Small in-window editors ---------- */
 
 /** Stop key presses and changes in our inputs reaching the sheet (so Enter doesn't submit it). */
@@ -205,9 +227,10 @@ function isolate(input) {
  * @param {string} [opts.value]     The tab's current name (renaming). Saving the same name changes nothing.
  * @param {string} [opts.initial]   Text to start with (defaults to `value`). Used to carry on after a redraw.
  * @param {boolean} [opts.replace]  Replace `target` (rename) instead of inserting before it (new tab).
+ * @param {boolean} [opts.append]  Put the box at the end of `target` (the tab row) instead.
  * @param {string} [opts.tabId]     The tab being renamed (remembered so typing survives a redraw).
  */
-function inlineTabInput(target, { value="", initial, placeholder="", replace=false, tabId="", onCommit }) {
+function inlineTabInput(target, { value="", initial, placeholder="", replace=false, append=false, tabId="", onCommit }) {
   const wrap = document.createElement("div");
   wrap.className = "ah-stash-tab active ah-tab-editing";
   wrap.dataset.editMode = replace ? "rename" : "new";
@@ -222,14 +245,15 @@ function inlineTabInput(target, { value="", initial, placeholder="", replace=fal
   wrap.append(input);
   isolate(input);
 
-  const nav = target.parentElement;
+  const nav = append ? target : target.parentElement;
   const original = replace ? target : null;
   // While typing, the box is the highlighted tab; remember which tab was highlighted so Escape can put it back.
   const wasActive = [...(nav?.querySelectorAll(".ah-stash-tab.active") ?? [])].filter(t => t !== original);
   if ( replace ) target.replaceWith(wrap);
+  else if ( append ) target.append(wrap);
   else target.before(wrap);
   wasActive.forEach(t => t.classList.remove("active"));
-  wrap.scrollIntoView({ block: "nearest", inline: "nearest" });
+  revealTab(nav, wrap);
 
   const putBack = () => {
     if ( original ) wrap.replaceWith(original);
@@ -438,12 +462,12 @@ function renameInline(btn, stash, category, initial) {
   });
 }
 
-/** Start typing a new tab's name, right where the new tab will go. */
+/** Start typing a new tab's name, right where the new tab will go (before "Unsorted", or at the end). */
 function newTabInline(nav, stash, initial) {
-  const add = nav.querySelector(".ah-tab-add");
-  if ( !add ) return null;
-  const before = nav.querySelector(`.ah-stash-tab[data-tab-id="${TAB_UNSORTED}"]`) ?? add;
-  return inlineTabInput(before, {
+  if ( !nav?.isConnected ) return null;
+  const unsorted = nav.querySelector(`.ah-stash-tab[data-tab-id="${TAB_UNSORTED}"]`);
+  return inlineTabInput(unsorted ?? nav, {
+    append: !unsorted,
     placeholder: "New tab name",
     initial,
     onCommit: async name => {
@@ -478,6 +502,10 @@ function addTabs(app, root, stash) {
       end: editInput.selectionEnd
     };
   }
+  root.querySelectorAll(".ah-tabbar").forEach(el => {
+    el._ahObserver?.disconnect();
+    el.remove();
+  });
   root.querySelectorAll(".ah-stash-tabs").forEach(el => el.remove());
   const inventory = root.querySelector("dnd5e-inventory, .inventory-element");
   if ( !inventory ) return;
@@ -518,7 +546,7 @@ function addTabs(app, root, stash) {
       ${t.icon ? `<i class="${t.icon}"></i>` : ""}<span class="ah-tab-name">${escapeHTML(t.name)}</span>
       <span class="ah-tab-count ${bumped ? "ah-bump" : ""}">${counts[t.id] ?? 0}</span>
     </button>`;
-  }).join("") + (manage ? `<button type="button" class="ah-stash-tab ah-tab-add" tabindex="-1" data-tooltip="New tab" aria-label="New tab"><i class="fa-solid fa-plus"></i></button>` : "");
+  }).join("");
 
   const tabButtons = () => [...nav.querySelectorAll(".ah-stash-tab[data-tab-id]")];
   const activate = btn => {
@@ -529,7 +557,7 @@ function addTabs(app, root, stash) {
       b.setAttribute("aria-selected", String(on));
       b.tabIndex = on ? 0 : -1;
     }
-    btn.scrollIntoView({ block: "nearest", inline: "nearest", behavior: "smooth" });
+    revealTab(nav, btn, true);
     applyFilter(root, stash);
   };
 
@@ -604,7 +632,7 @@ function addTabs(app, root, stash) {
       event.preventDefault();
       event.stopPropagation();
       activate(next);
-      next.focus();
+      next.focus({ preventScroll: true });
       return;
     }
     const category = categories.find(c => c.id === btn.dataset.tabId);
@@ -620,25 +648,133 @@ function addTabs(app, root, stash) {
     }
   });
 
+
+  // The bar: ‹ [scrolling tabs] › +, with a thin scroll bar under the line when the tabs don't all fit.
+  const bar = document.createElement("div");
+  bar.className = "ah-tabbar";
+  const row = document.createElement("div");
+  row.className = "ah-tabbar-row";
+  const left = document.createElement("button");
+  left.type = "button";
+  left.className = "ah-tab-scroll ah-tab-scroll-left";
+  left.tabIndex = -1;
+  left.setAttribute("aria-label", "Scroll tabs left");
+  left.innerHTML = '<i class="fa-solid fa-chevron-left"></i>';
+  const right = left.cloneNode(false);
+  right.className = "ah-tab-scroll ah-tab-scroll-right";
+  right.setAttribute("aria-label", "Scroll tabs right");
+  right.innerHTML = '<i class="fa-solid fa-chevron-right"></i>';
+  row.append(left, nav, right);
+  if ( manage ) {
+    const add = document.createElement("button");
+    add.type = "button";
+    add.className = "ah-stash-tab ah-tab-add";
+    add.dataset.tooltip = "New tab";
+    add.setAttribute("aria-label", "New tab");
+    add.innerHTML = '<i class="fa-solid fa-plus"></i>';
+    // "+": a new tab appears right there, ready to type its name.
+    add.addEventListener("click", event => {
+      event.preventDefault();
+      if ( nav.querySelector(".ah-tab-editing") ) return nav.querySelector(".ah-tab-input")?.focus();
+      closeFloating();
+      newTabInline(nav, stash);
+    });
+    row.append(add);
+  }
+  const track = document.createElement("div");
+  track.className = "ah-tab-track";
+  const thumb = document.createElement("div");
+  thumb.className = "ah-tab-thumb";
+  track.append(thumb);
+  bar.append(row, track);
+
+  // Keep the arrows, fades and scroll bar in step with the tab row.
+  const update = () => {
+    const max = nav.scrollWidth - nav.clientWidth;
+    const over = max > 1;
+    const x = nav.scrollLeft;
+    bar.classList.toggle("ah-overflowing", over);
+    bar.classList.toggle("ah-more-left", over && (x > 1));
+    bar.classList.toggle("ah-more-right", over && (x < max - 1));
+    left.disabled = !over || (x <= 1);
+    right.disabled = !over || (x >= max - 1);
+    if ( !over ) return;
+    const trackW = track.clientWidth;
+    const thumbW = Math.max(24, trackW * (nav.clientWidth / nav.scrollWidth));
+    thumb.style.width = `${thumbW}px`;
+    thumb.style.left = `${(trackW - thumbW) * (x / max)}px`;
+  };
+  let frame = null;
+  const scheduleUpdate = () => {
+    if ( frame ) return;
+    frame = requestAnimationFrame(() => {
+      frame = null;
+      update();
+    });
+  };
+  nav.addEventListener("scroll", scheduleUpdate, { passive: true });
+  if ( typeof ResizeObserver === "function" ) {
+    bar._ahObserver = new ResizeObserver(scheduleUpdate);
+    bar._ahObserver.observe(nav);
+    bar._ahObserver.observe(track);
+  }
+
+  const page = () => Math.max(80, nav.clientWidth * 0.7);
+  left.addEventListener("click", ev => {
+    ev.preventDefault();
+    nav.scrollBy({ left: -page(), behavior: "smooth" });
+  });
+  right.addEventListener("click", ev => {
+    ev.preventDefault();
+    nav.scrollBy({ left: page(), behavior: "smooth" });
+  });
+
+  // Click anywhere along the scroll bar to jump there.
+  track.addEventListener("pointerdown", ev => {
+    if ( ev.target === thumb ) return;
+    ev.preventDefault();
+    const rect = track.getBoundingClientRect();
+    const thumbW = thumb.offsetWidth;
+    const ratio = Math.min(1, Math.max(0, (ev.clientX - rect.left - (thumbW / 2)) / Math.max(1, rect.width - thumbW)));
+    nav.scrollTo({ left: ratio * (nav.scrollWidth - nav.clientWidth), behavior: "smooth" });
+  });
+
+  // Drag the scroll bar's handle.
+  thumb.addEventListener("pointerdown", ev => {
+    ev.preventDefault();
+    ev.stopPropagation();
+    const startX = ev.clientX;
+    const startScroll = nav.scrollLeft;
+    const max = nav.scrollWidth - nav.clientWidth;
+    const room = Math.max(1, track.clientWidth - thumb.offsetWidth);
+    thumb.classList.add("ah-grabbing");
+    try { thumb.setPointerCapture(ev.pointerId); } catch { /* ignore */ }
+    const move = e => { nav.scrollLeft = startScroll + ((e.clientX - startX) * (max / room)); };
+    const up = () => {
+      thumb.classList.remove("ah-grabbing");
+      thumb.removeEventListener("pointermove", move);
+      thumb.removeEventListener("pointerup", up);
+      thumb.removeEventListener("pointercancel", up);
+    };
+    thumb.addEventListener("pointermove", move);
+    thumb.addEventListener("pointerup", up);
+    thumb.addEventListener("pointercancel", up);
+  });
+
   // Mouse wheel scrolls the tab row sideways when there are more tabs than fit.
-  nav.addEventListener("wheel", event => {
+  bar.addEventListener("wheel", event => {
     if ( nav.scrollWidth <= nav.clientWidth ) return;
     if ( Math.abs(event.deltaY) <= Math.abs(event.deltaX) ) return;
     event.preventDefault();
     nav.scrollLeft += event.deltaY;
   }, { passive: false });
 
-  // "+": a new tab appears right there, ready to type its name.
-  nav.querySelector(".ah-tab-add")?.addEventListener("click", event => {
-    event.preventDefault();
-    if ( nav.querySelector(".ah-tab-editing") ) return nav.querySelector(".ah-tab-input")?.focus();
-    closeFloating();
-    newTabInline(nav, stash);
-  });
-
-  inventory.before(nav);
+  inventory.before(bar);
   nav.scrollLeft = oldScroll;
-  nav.querySelector(".ah-stash-tab.active")?.scrollIntoView({ block: "nearest", inline: "nearest" });
+  // Work out first whether the arrows are needed (they take up room), then bring the open tab into view.
+  update();
+  revealTab(nav, nav.querySelector(".ah-stash-tab.active"));
+  update();
   applyFilter(root, stash);
 
   if ( resume && manage ) {

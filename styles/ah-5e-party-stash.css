@@ -149,26 +149,127 @@
 /* ---------- Folder-style tabs ---------- */
 /* The open tab is filled with the accent colour and flows into the line underneath,
    with curved corners that flare out at the bottom. */
-.ah-stash-tabs {
+.ah-tabbar {
   --ah-tab-r: 7px;
   position: relative;
+  margin: 0 0 10px;
+}
+
+/* The row of tabs plus the fixed controls, sitting on the accent line */
+.ah-tabbar-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  border-bottom: 3px solid var(--ah-accent, #4fb3c9);
+}
+
+/* Only the tabs scroll; "+" and the arrows stay put */
+.ah-stash-tabs {
+  position: relative;
+  flex: 1 1 auto;
+  min-width: 0;
   display: flex;
   flex-wrap: nowrap;
   align-items: flex-end;
   gap: 3px;
-  margin: 0 0 10px;
+  margin: 0;
   padding: 6px calc(var(--ah-tab-r) + 2px) 0;
   overflow-x: auto;
   overflow-y: hidden;
   scrollbar-width: none;
-  border-bottom: 3px solid var(--ah-accent, #4fb3c9);
 }
 
 .ah-stash-tabs::-webkit-scrollbar {
   display: none;
 }
 
-.ah-stash-tabs .ah-stash-tab {
+/* Fade the side that has more tabs hidden past it */
+.ah-tabbar.ah-more-left .ah-stash-tabs {
+  mask-image: linear-gradient(90deg, transparent 0, #000 28px);
+}
+
+.ah-tabbar.ah-more-right .ah-stash-tabs {
+  mask-image: linear-gradient(90deg, #000 calc(100% - 28px), transparent 100%);
+}
+
+.ah-tabbar.ah-more-left.ah-more-right .ah-stash-tabs {
+  mask-image: linear-gradient(90deg, transparent 0, #000 28px, #000 calc(100% - 28px), transparent 100%);
+}
+
+/* ‹ › arrows: only shown when the tabs don't all fit */
+.ah-tabbar .ah-tab-scroll {
+  flex: 0 0 22px;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  margin: 0 0 4px;
+  padding: 0;
+  font-size: 10px;
+  color: inherit;
+  background: var(--ah-accent-soft);
+  border: 1px solid var(--ah-accent-mid);
+  border-radius: 50%;
+  box-shadow: none;
+  cursor: pointer;
+  transition: background 0.15s, opacity 0.15s, transform 0.1s;
+}
+
+.ah-tabbar.ah-overflowing .ah-tab-scroll {
+  display: inline-flex;
+}
+
+.ah-tabbar .ah-tab-scroll:hover:not([disabled]) {
+  background: color-mix(in srgb, var(--ah-accent, #4fb3c9) 35%, transparent);
+}
+
+.ah-tabbar .ah-tab-scroll:active:not([disabled]) {
+  transform: scale(0.92);
+}
+
+.ah-tabbar .ah-tab-scroll[disabled] {
+  opacity: 0.25;
+  cursor: default;
+}
+
+/* Thin scroll bar under the line: drag it, or click anywhere along it */
+.ah-tab-track {
+  position: relative;
+  display: none;
+  height: 5px;
+  margin: 4px calc(var(--ah-tab-r) + 24px) 0;
+  background: var(--ah-accent-soft);
+  border-radius: 3px;
+  cursor: pointer;
+}
+
+.ah-tabbar.ah-overflowing .ah-tab-track {
+  display: block;
+}
+
+.ah-tab-thumb {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  min-width: 24px;
+  background: var(--ah-accent-mid);
+  border-radius: 3px;
+  cursor: grab;
+  transition: background 0.15s;
+}
+
+.ah-tab-track:hover .ah-tab-thumb,
+.ah-tab-thumb.ah-grabbing {
+  background: var(--ah-accent, #4fb3c9);
+}
+
+.ah-tab-thumb.ah-grabbing {
+  cursor: grabbing;
+}
+
+.ah-tabbar .ah-stash-tab {
   position: relative;
   flex: 0 0 auto;
   display: inline-flex;
@@ -195,23 +296,23 @@
   transition: height 0.18s var(--ah-ease), background 0.18s, opacity 0.18s, color 0.18s;
 }
 
-.ah-stash-tabs .ah-stash-tab i {
+.ah-tabbar .ah-stash-tab i {
   font-size: 11px;
   opacity: 0.85;
 }
 
-.ah-stash-tabs .ah-stash-tab:hover {
+.ah-tabbar .ah-stash-tab:hover {
   opacity: 1;
   height: 30px;
   background: color-mix(in srgb, var(--ah-accent, #4fb3c9) 26%, transparent);
 }
 
-.ah-stash-tabs .ah-stash-tab:focus-visible {
+.ah-tabbar .ah-stash-tab:focus-visible {
   outline: 2px solid #fff;
   outline-offset: -4px;
 }
 
-.ah-stash-tabs .ah-stash-tab.ah-drop-hover {
+.ah-tabbar .ah-stash-tab.ah-drop-hover {
   opacity: 1;
   height: 30px;
   background: color-mix(in srgb, var(--ah-accent, #4fb3c9) 40%, transparent);
@@ -220,16 +321,16 @@
   animation: ah-pulse 1s infinite;
 }
 
-.ah-stash-tabs .ah-stash-tab.ah-dragging {
+.ah-tabbar .ah-stash-tab.ah-dragging {
   opacity: 0.4;
 }
 
-.ah-stash-tabs .ah-stash-tab[draggable="true"] {
+.ah-tabbar .ah-stash-tab[draggable="true"] {
   cursor: grab;
 }
 
 /* The open tab: solid accent, a little taller, joined to the line below */
-.ah-stash-tabs .ah-stash-tab.active {
+.ah-tabbar .ah-stash-tab.active {
   z-index: 1;
   height: 32px;
   opacity: 1;
@@ -241,8 +342,8 @@
 }
 
 /* The outward curves at the bottom corners of the open tab */
-.ah-stash-tabs .ah-stash-tab.active::before,
-.ah-stash-tabs .ah-stash-tab.active::after {
+.ah-tabbar .ah-stash-tab.active::before,
+.ah-tabbar .ah-stash-tab.active::after {
   content: "";
   position: absolute;
   bottom: 0;
@@ -251,17 +352,17 @@
   pointer-events: none;
 }
 
-.ah-stash-tabs .ah-stash-tab.active::before {
+.ah-tabbar .ah-stash-tab.active::before {
   left: calc(-1 * var(--ah-tab-r) - 1px);
   background: radial-gradient(circle at 0 0, transparent calc(var(--ah-tab-r) - 0.5px), var(--ah-accent, #4fb3c9) var(--ah-tab-r));
 }
 
-.ah-stash-tabs .ah-stash-tab.active::after {
+.ah-tabbar .ah-stash-tab.active::after {
   right: calc(-1 * var(--ah-tab-r) - 1px);
   background: radial-gradient(circle at 100% 0, transparent calc(var(--ah-tab-r) - 0.5px), var(--ah-accent, #4fb3c9) var(--ah-tab-r));
 }
 
-.ah-stash-tabs .ah-tab-count {
+.ah-tabbar .ah-tab-count {
   min-width: 18px;
   padding: 2px 5px;
   font-size: 10px;
@@ -271,43 +372,45 @@
   background: rgba(0, 0, 0, 0.25);
 }
 
-.ah-stash-tabs .ah-tab-count.ah-bump {
+.ah-tabbar .ah-tab-count.ah-bump {
   animation: ah-bump 0.45s var(--ah-ease);
 }
 
-.ah-stash-tabs .ah-stash-tab.active .ah-tab-count {
+.ah-tabbar .ah-stash-tab.active .ah-tab-count {
   background: rgba(0, 0, 0, 0.22);
 }
 
-/* "+" tab */
-.ah-stash-tabs .ah-tab-add {
+/* "+" tab: pinned at the end of the bar, always reachable */
+.ah-tabbar .ah-tab-add {
+  flex: 0 0 auto;
+  margin-left: 4px;
   padding: 0 10px;
   background: transparent;
   border-style: dashed dashed none;
   opacity: 0.6;
 }
 
-.ah-stash-tabs .ah-tab-add:hover {
+.ah-tabbar .ah-tab-add:hover {
   opacity: 1;
   background: var(--ah-accent-soft);
 }
 
-.ah-stash-tabs .ah-tab-add i {
+.ah-tabbar .ah-tab-add i {
   transition: transform 0.2s var(--ah-ease);
 }
 
-.ah-stash-tabs .ah-tab-add:hover i {
+.ah-tabbar .ah-tab-add:hover i {
   transform: rotate(90deg);
 }
 
 /* A tab being named */
-.ah-stash-tabs .ah-tab-editing {
+.ah-tabbar .ah-tab-editing {
   padding: 0 5px;
   cursor: text;
   animation: ah-fade-up 0.18s var(--ah-ease);
 }
 
-.ah-stash-tabs .ah-tab-input {
+.ah-tabbar .ah-tab-input {
   width: 140px;
   height: 22px;
   padding: 0 8px;
