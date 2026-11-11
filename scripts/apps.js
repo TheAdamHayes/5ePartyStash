@@ -4,9 +4,8 @@ import {
   parseKeywords, parseLayoutText, pickIcons
 } from "./logic.js";
 import {
-  canManage, createStash, deleteStash, ensureStash, getPlayerCharacters, getProxies, getStash, getStashActor,
-  getStashConfig, getStashes, giveToEveryone, isStashActor, openStash, stashCounts, stashForProxy,
-  takeFromEveryone, updateStash
+  accessList, canManage, createStash, deleteStash, ensureStash, getPlayerCharacters, getStash, getStashActor,
+  getStashConfig, getStashes, giveBag, giveToEveryone, openStash, stashCounts, takeBag, takeFromEveryone, updateStash
 } from "./stash.js";
 
 const { ApplicationV2, DialogV2 } = foundry.applications.api;
@@ -28,9 +27,30 @@ export function openEditor(stash) {
 }
 
 /** Re-draw any open overview windows (after a stash changes). */
+let refreshTimer = null;
 export function refreshOverviews() {
-  for ( const app of foundry.applications.instances.values() ) {
-    if ( (app instanceof StashOverview) && app.rendered ) app.render();
+  clearTimeout(refreshTimer);
+  refreshTimer = setTimeout(() => {
+    for ( const app of foundry.applications.instances.values() ) {
+      if ( (app instanceof StashOverview) && app.rendered ) app.render();
+    }
+  }, 60);
+}
+
+/**
+ * Size a window to its content, then make sure its bottom edge (where the Save button is) is on screen.
+ * The window's own CSS caps its height at the screen height, and the middle part scrolls.
+ */
+function fitToScreen(app) {
+  try {
+    app.setPosition({ height: "auto" });
+    const rect = app.element?.getBoundingClientRect();
+    if ( !rect ) return;
+    const margin = 10;
+    const overflow = rect.bottom - (window.innerHeight - margin);
+    if ( overflow > 0 ) app.setPosition({ top: Math.max(margin, rect.top - overflow) });
+  } catch ( err ) {
+    console.debug(`${MODULE_ID} | Could not resize window.`, err);
   }
 }
 
@@ -175,6 +195,7 @@ export class StashEditor extends ApplicationV2 {
 
     return `
       <div class="ah-editor" style="--ah-accent: ${escapeHTML(d.accent)}">
+       <div class="ah-editor-body">
 
         <section class="ah-preview">
           <div class="ah-preview-tile">
@@ -221,6 +242,7 @@ export class StashEditor extends ApplicationV2 {
           <button type="button" class="ah-add-row" data-action="addTab"><i class="fa-solid fa-plus"></i> Add tab</button>
           <p class="ah-hint"><kbd>Enter</kbd> in a tab name adds another tab. Keywords are saved with each tab, ready for automatic sorting in a future update.</p>
         </section>
+       </div>
 
         <footer class="ah-footer">
           ${game.user.isGM && moreThanOne ? `<button type="button" class="ah-ghost ah-danger" data-action="deleteStash"><i class="fa-solid fa-trash"></i> Delete stash</button>` : ""}
@@ -232,9 +254,12 @@ export class StashEditor extends ApplicationV2 {
   }
 
   _replaceHTML(result, content) {
+    const oldScroll = content.querySelector(".ah-editor-body")?.scrollTop ?? 0;
     content.innerHTML = result;
     const editor = content.querySelector(".ah-editor");
     if ( !editor ) return;
+    const body = content.querySelector(".ah-editor-body");
+    if ( body ) body.scrollTop = oldScroll;
     const markDirty = () => {
       this.dirty = true;
       content.querySelector('button[type="submit"]')?.classList.add("ah-dirty");
@@ -333,6 +358,15 @@ export class StashEditor extends ApplicationV2 {
       this._focusedOnce = true;
       content.querySelector('input[name="name"]')?.focus();
     }
+  }
+
+  /** After each redraw (e.g. a tab row added), grow or shrink the window to fit, but never past the screen. */
+  _onRender(context, options) {
+    super._onRender?.(context, options);
+    if ( !options?.isFirstRender ) fitToScreen(this);
+    // Keep the focused field in view inside the scrolling area.
+    const active = this.element?.querySelector(".ah-editor-body :focus");
+    active?.scrollIntoView?.({ block: "nearest" });
   }
 
   /* ---------- Actions ---------- */
@@ -476,10 +510,14 @@ export class StashOverview extends ApplicationV2 {
       remove: StashOverview._onRemove,
       newStash: StashOverview._onNewStash,
       repair: StashOverview._onRepair,
-      giveAll: StashOverview._onGiveAll,
-      takeAll: StashOverview._onTakeAll
+      accessAll: StashOverview._onAccessAll,
+      accessNone: StashOverview._onAccessNone,
+      toggleAccess: StashOverview._onToggleAccess
     }
   };
+
+  /** Stashes whose player list is folded away (remembered while Foundry is open). */
+  static collapsed = new Set();
 
   async _renderHTML() {
     const actor = getStashActor();
@@ -491,25 +529,27 @@ export class StashOverview extends ApplicationV2 {
         </div></div>`;
     }
 
-    // Who carries which stash's bag
-    const carriers = new Map();
-    for ( const a of game.actors ) {
-      if ( isStashActor(a) ) continue;
-      for ( const p of getProxies(a) ) {
-        const sid = stashForProxy(p)?.id;
-        if ( !sid ) continue;
-        if ( !carriers.has(sid) ) carriers.set(sid, new Set());
-        carriers.get(sid).add(a.name);
-      }
-    }
-
     const stashes = getStashes();
     let totalItems = 0;
     const cards = stashes.map((s, idx) => {
       const config = getStashConfig(s);
       const counts = stashCounts(s);
       totalItems += counts[TAB_ALL];
-      const who = [...(carriers.get(s.id) ?? [])].sort();
+      const access = accessList(s);
+      const withAccess = access.filter(a => a.has);
+      const collapsed = StashOverview.collapsed.has(s.id);
+      const avatars = withAccess.slice(0, 5).map(a => `<img src="${escapeHTML(a.img)}" alt="" data-tooltip="${escapeHTML(a.actor.name)}">`).join("")
+        + (withAccess.length > 5 ? `<span class="ah-avatar-more">+${withAccess.length - 5}</span>` : "");
+      const rows = access.map(a => `
+        <label class="ah-access-row ${a.has ? "on" : ""}" data-actor-id="${a.actor.id}">
+          <input type="checkbox" class="ah-access-check" ${a.has ? "checked" : ""} aria-label="${escapeHTML(a.actor.name)} can use ${escapeHTML(s.name)}">
+          <span class="ah-check"><i class="fa-solid fa-check"></i></span>
+          <img class="ah-access-img" src="${escapeHTML(a.img)}" alt="">
+          <span class="ah-access-name">
+            <strong>${escapeHTML(a.actor.name)}</strong>
+            <small>${a.owner ? escapeHTML(a.owner.name) : "No player"}</small>
+          </span>
+        </label>`).join("");
       const tabChips = config.categories.map(c => `<span class="ah-chip">${escapeHTML(c.name)} <b>${counts[c.id] ?? 0}</b></span>`).join("")
         + (config.categories.length && counts[TAB_UNSORTED] ? `<span class="ah-chip ah-chip-muted">Unsorted <b>${counts[TAB_UNSORTED]}</b></span>` : "");
       return `
@@ -523,19 +563,30 @@ export class StashOverview extends ApplicationV2 {
               <span class="ah-card-sub">${counts[TAB_ALL]} item${counts[TAB_ALL] === 1 ? "" : "s"} · ${config.categories.length} tab${config.categories.length === 1 ? "" : "s"}</span>
             </div>
             <div class="ah-card-menu">
+              <button type="button" class="ah-icon-btn ah-ghost" data-action="open" data-tooltip="Open stash"><i class="fa-solid fa-box-open"></i></button>
               <button type="button" class="ah-icon-btn ah-ghost" data-action="edit" data-tooltip="Edit stash"><i class="fa-solid fa-wrench"></i></button>
               <button type="button" class="ah-icon-btn ah-ghost ah-danger" data-action="remove" data-tooltip="${stashes.length < 2 ? "You can't delete the only stash" : "Delete stash"}" ${stashes.length < 2 ? "disabled" : ""}><i class="fa-solid fa-trash"></i></button>
             </div>
           </div>
           ${tabChips ? `<div class="ah-card-tabs">${tabChips}</div>` : ""}
-          <div class="ah-card-carriers"><i class="fa-solid fa-users"></i>
-            ${who.length ? who.map(n => `<span class="ah-person">${escapeHTML(n)}</span>`).join("") : `<em>Nobody carries this yet</em>`}
-          </div>
-          <footer class="ah-card-actions">
-            <button type="button" class="ah-pill" data-action="giveAll"><i class="fa-solid fa-user-plus"></i> Give to everyone</button>
-            <button type="button" class="ah-pill" data-action="takeAll" ${who.length ? "" : "disabled"}><i class="fa-solid fa-user-minus"></i> Take back</button>
-            <button type="button" class="ah-pill ah-pill-accent" data-action="open"><i class="fa-solid fa-box-open"></i> Open</button>
-          </footer>
+          <section class="ah-access ${collapsed ? "collapsed" : ""}">
+            <header class="ah-access-head">
+              <button type="button" class="ah-access-toggle" data-action="toggleAccess" aria-expanded="${!collapsed}"
+                      data-tooltip="${collapsed ? "Show" : "Hide"} who can use this stash">
+                <i class="fa-solid fa-users"></i><span>Players</span>
+                <span class="ah-avatars">${avatars}</span>
+                <span class="ah-access-count">${withAccess.length}<span>/${access.length}</span></span>
+                <i class="fa-solid fa-chevron-down ah-chevron"></i>
+              </button>
+              <span class="ah-access-quick">
+                <button type="button" class="ah-link" data-action="accessAll" data-tooltip="Give every player character this stash's bag">All</button>
+                <button type="button" class="ah-link" data-action="accessNone" data-tooltip="Take this stash's bag back from everyone (no items are lost)" ${withAccess.length ? "" : "disabled"}>None</button>
+              </span>
+            </header>
+            <div class="ah-access-list">
+              ${rows || `<p class="ah-hint">No player characters yet. A character shows here once a player owns it.</p>`}
+            </div>
+          </section>
         </article>`;
     }).join("");
 
@@ -578,13 +629,23 @@ export class StashOverview extends ApplicationV2 {
   }
 
   _replaceHTML(result, content) {
+    const scroll = content.scrollTop;
     content.innerHTML = result;
+    content.scrollTop = scroll;
+    content.querySelectorAll(".ah-access-check").forEach(input => {
+      input.addEventListener("change", () => this.#onAccessChange(input));
+    });
     content.querySelector('input[name="playersManage"]')?.addEventListener("change", ev => {
       game.settings.set(MODULE_ID, SETTINGS.PLAYERS_MANAGE, ev.target.checked);
     });
     content.querySelector('input[name="autoGive"]')?.addEventListener("change", ev => {
       game.settings.set(MODULE_ID, SETTINGS.AUTO_GIVE, ev.target.checked);
     });
+  }
+
+  _onRender(context, options) {
+    super._onRender?.(context, options);
+    if ( !options?.isFirstRender ) fitToScreen(this);
   }
 
   static #stashFrom(target) {
@@ -610,7 +671,20 @@ export class StashOverview extends ApplicationV2 {
     this.render();
   }
 
-  static async _onGiveAll(event, target) {
+  static _onToggleAccess(event, target) {
+    const stash = StashOverview.#stashFrom(target);
+    if ( !stash ) return;
+    const set = StashOverview.collapsed;
+    const nowCollapsed = !set.has(stash.id);
+    if ( nowCollapsed ) set.add(stash.id);
+    else set.delete(stash.id);
+    // Fold without redrawing the whole window
+    const section = target.closest(".ah-access");
+    section?.classList.toggle("collapsed", nowCollapsed);
+    target.setAttribute("aria-expanded", String(!nowCollapsed));
+  }
+
+  static async _onAccessAll(event, target) {
     const stash = StashOverview.#stashFrom(target);
     if ( !stash ) return;
     if ( !getPlayerCharacters().length ) {
@@ -624,21 +698,35 @@ export class StashOverview extends ApplicationV2 {
     this.render();
   }
 
-  static async _onTakeAll(event, target) {
+  static async _onAccessNone(event, target) {
     const stash = StashOverview.#stashFrom(target);
     if ( !stash ) return;
-    const yes = await DialogV2.confirm({
-      window: { title: `Take back "${stash.name}"?`, icon: "fa-solid fa-user-minus" },
-      content: `<p>Remove the <strong>${escapeHTML(stash.name)}</strong> bag from every character who carries it?</p>
-        <p>No items are lost. Everything stays in the stash, and you can give the bags out again at any time.</p>`,
-      yes: { label: "Take Back", icon: "fa-solid fa-user-minus" },
-      no: { label: "Cancel", default: true },
-      rejectClose: false
-    });
-    if ( !yes ) return;
     const taken = await takeFromEveryone(stash);
-    ui.notifications.info(`${STASH_NAME}: took "${stash.name}" back from ${taken.length ? taken.join(", ") : "nobody"}.`);
+    if ( taken.length ) ui.notifications.info(`${STASH_NAME}: took "${stash.name}" back from ${taken.join(", ")}. No items were lost.`);
     this.render();
+  }
+
+  /** Tick or untick one character's access. */
+  async #onAccessChange(input) {
+    const row = input.closest(".ah-access-row");
+    const stash = StashOverview.#stashFrom(input);
+    const actor = game.actors.get(row?.dataset.actorId);
+    if ( !stash || !actor ) return;
+    row.classList.toggle("on", input.checked);
+    row.classList.add("ah-busy");
+    input.disabled = true;
+    try {
+      if ( input.checked ) await giveBag(stash, actor);
+      else await takeBag(stash, actor);
+    } catch ( err ) {
+      console.error(`${MODULE_ID} | Could not change access for ${actor.name}.`, err);
+      ui.notifications.error(`${STASH_NAME}: couldn't change ${actor.name}'s access. See the console (F12).`);
+      input.checked = !input.checked;
+      row.classList.toggle("on", input.checked);
+    } finally {
+      row.classList.remove("ah-busy");
+      input.disabled = false;
+    }
   }
 
   static async _onRepair() {

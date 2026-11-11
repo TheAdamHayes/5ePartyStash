@@ -505,6 +505,44 @@ export async function giveToEveryone(stash) {
   return given;
 }
 
+/** Does this character carry a bag for this stash? */
+export function hasBag(stash, actor) {
+  return !!stash && getProxies(actor).some(p => stashForProxy(p)?.id === stash.id);
+}
+
+/** Take this stash's bag away from one character. No stash items are lost. */
+export async function takeBag(stash, actor) {
+  if ( !stash || !actor ) return false;
+  const ids = getProxies(actor).filter(p => stashForProxy(p)?.id === stash.id).map(p => p.id);
+  if ( !ids.length ) return false;
+  await safeDelete(actor, ids, "take bag back");
+  return true;
+}
+
+/** The player (not GM) who owns a character, if any. */
+export function ownerOf(actor) {
+  return game.users.find(u => !u.isGM && (u.character === actor))
+    ?? game.users.find(u => !u.isGM && actor.testUserPermission?.(u, "OWNER"));
+}
+
+/**
+ * Everyone who should appear in a stash's access list: every player character, plus anyone else
+ * who already carries this stash's bag (e.g. an NPC it was dragged onto), so they can be unticked.
+ * @returns {{actor: Actor, has: boolean, owner: User|undefined, img: string}[]}
+ */
+export function accessList(stash) {
+  const actors = new Set(getPlayerCharacters());
+  for ( const a of game.actors ) if ( !isStashActor(a) && hasBag(stash, a) ) actors.add(a);
+  return [...actors]
+    .map(actor => ({
+      actor,
+      has: hasBag(stash, actor),
+      owner: ownerOf(actor),
+      img: actor.prototypeToken?.texture?.src || actor.img
+    }))
+    .sort((a, b) => a.actor.name.localeCompare(b.actor.name));
+}
+
 /**
  * Take this stash's bag back from every character (GM only). No stash items are lost.
  * @returns {Promise<string[]>}  Names of the characters whose bag was removed.

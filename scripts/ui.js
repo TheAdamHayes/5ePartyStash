@@ -202,43 +202,53 @@ function isolate(input) {
  * Show a text box in the tab bar. Enter or clicking away saves; Escape cancels.
  * @param {HTMLElement} target   The tab to replace, or the element to put the new box in front of.
  * @param {object} opts
+ * @param {string} [opts.value]     The tab's current name (renaming). Saving the same name changes nothing.
+ * @param {string} [opts.initial]   Text to start with (defaults to `value`). Used to carry on after a redraw.
  * @param {boolean} [opts.replace]  Replace `target` (rename) instead of inserting before it (new tab).
+ * @param {string} [opts.tabId]     The tab being renamed (remembered so typing survives a redraw).
  */
-function inlineTabInput(target, { value="", placeholder="", replace=false, onCommit }) {
+function inlineTabInput(target, { value="", initial, placeholder="", replace=false, tabId="", onCommit }) {
   const wrap = document.createElement("div");
   wrap.className = "ah-stash-tab active ah-tab-editing";
+  wrap.dataset.editMode = replace ? "rename" : "new";
+  wrap.dataset.editTab = tabId;
   const input = document.createElement("input");
   input.type = "text";
   input.className = "ah-tab-input";
-  input.value = value;
+  input.value = initial ?? value;
   input.placeholder = placeholder;
   input.maxLength = 40;
   input.setAttribute("aria-label", placeholder || "Tab name");
   wrap.append(input);
   isolate(input);
 
+  const nav = target.parentElement;
   const original = replace ? target : null;
+  // While typing, the box is the highlighted tab; remember which tab was highlighted so Escape can put it back.
+  const wasActive = [...(nav?.querySelectorAll(".ah-stash-tab.active") ?? [])].filter(t => t !== original);
   if ( replace ) target.replaceWith(wrap);
   else target.before(wrap);
-  wrap.parentElement?.querySelectorAll(".ah-stash-tab.active").forEach(t => { if ( t !== wrap ) t.classList.remove("active"); });
+  wasActive.forEach(t => t.classList.remove("active"));
   wrap.scrollIntoView({ block: "nearest", inline: "nearest" });
+
+  const putBack = () => {
+    if ( original ) wrap.replaceWith(original);
+    else wrap.remove();
+    wasActive.forEach(t => { if ( t.isConnected ) t.classList.add("active"); });
+  };
 
   let done = false;
   const finish = async save => {
-    if ( done ) return;
+    // A redraw replaced the tab bar while typing: the new bar carries on with the typing, so do nothing here.
+    if ( done || input.dataset.abandoned ) return;
     done = true;
     const text = input.value.trim();
     if ( save && text && (text !== value) ) {
       input.disabled = true;
       await onCommit(text);   // Saving redraws the window, which rebuilds the tab bar.
-      if ( wrap.isConnected ) {
-        if ( original ) wrap.replaceWith(original);
-        else wrap.remove();
-      }
+      if ( wrap.isConnected ) putBack(); // didn't save (e.g. no permission)
     } else {
-      if ( original ) wrap.replaceWith(original);
-      else wrap.remove();
-      wrap.dispatchEvent(new CustomEvent("ah-cancel", { bubbles: true }));
+      putBack();
       original?.focus();
     }
   };
@@ -249,8 +259,15 @@ function inlineTabInput(target, { value="", placeholder="", replace=false, onCom
   });
   input.addEventListener("blur", () => finish(true));
   input.focus();
-  input.select();
+  if ( initial === undefined ) input.select();
   return wrap;
+}
+
+/** A tab button may have been replaced by a redraw since a menu was opened; find the current one. */
+function currentTab(root, btn) {
+  if ( btn?.isConnected ) return btn;
+  const id = btn?.dataset?.tabId;
+  return id ? root?.querySelector(`.ah-stash-tabs .ah-stash-tab[data-tab-id="${CSS.escape(id)}"]`) : null;
 }
 
 /** Close any open tab menu or popover. */
@@ -303,6 +320,7 @@ function closeOnOutside(box) {
 /** A small box under a tab for editing its keywords. */
 function keywordsPopover(anchor, stash, category, accent) {
   closeFloating();
+  if ( !anchor?.isConnected ) return;
   const box = document.createElement("div");
   box.className = "ah-tab-popover";
   box.style.setProperty("--ah-accent", accent);
@@ -370,13 +388,13 @@ function tabMenu(event, btn, root, stash, accent) {
   const count = stashCounts(stash)[category.id] ?? 0;
 
   const entries = [
-    { icon: "fa-pen", label: "Rename", key: "F2", run: () => renameInline(btn, stash, category) },
-    { icon: "fa-tags", label: "Keywords…", run: () => keywordsPopover(btn, stash, category, accent) },
+    { icon: "fa-pen", label: "Rename", key: "F2", run: () => renameInline(currentTab(root, btn), stash, category) },
+    { icon: "fa-tags", label: "Keywords…", run: () => keywordsPopover(currentTab(root, btn), stash, category, accent) },
     { divider: true },
     { icon: "fa-arrow-left", label: "Move left", disabled: index === 0,
-      run: () => saveTabs(stash, moveTab(categories, category.id, -1)) },
+      run: () => saveTabs(stash, moveTab(getStashConfig(stash).categories, category.id, -1)) },
     { icon: "fa-arrow-right", label: "Move right", disabled: index === categories.length - 1,
-      run: () => saveTabs(stash, moveTab(categories, category.id, 1)) },
+      run: () => saveTabs(stash, moveTab(getStashConfig(stash).categories, category.id, 1)) },
     { divider: true },
     { icon: "fa-trash", label: "Delete tab", key: "Del", danger: true, run: () => deleteTabWithUndo(root, stash, category) }
   ];
@@ -407,13 +425,32 @@ function tabMenu(event, btn, root, stash, accent) {
   });
 }
 
-function renameInline(btn, stash, category) {
+function renameInline(btn, stash, category, initial) {
   closeFloating();
-  inlineTabInput(btn, {
+  if ( !btn?.isConnected ) return null;
+  return inlineTabInput(btn, {
     value: category.name,
+    initial,
     placeholder: "Tab name",
     replace: true,
+    tabId: category.id,
     onCommit: name => saveTabs(stash, renameTab(getStashConfig(stash).categories, category.id, name))
+  });
+}
+
+/** Start typing a new tab's name, right where the new tab will go. */
+function newTabInline(nav, stash, initial) {
+  const add = nav.querySelector(".ah-tab-add");
+  if ( !add ) return null;
+  const before = nav.querySelector(`.ah-stash-tab[data-tab-id="${TAB_UNSORTED}"]`) ?? add;
+  return inlineTabInput(before, {
+    placeholder: "New tab name",
+    initial,
+    onCommit: async name => {
+      const id = foundry.utils.randomID(8);
+      setActiveTab(stash.id, id);
+      await saveTabs(stash, addTab(getStashConfig(stash).categories, name, id));
+    }
   });
 }
 
@@ -425,6 +462,22 @@ const lastCounts = new Map();
 function addTabs(app, root, stash) {
   const oldNav = root.querySelector(".ah-stash-tabs");
   const oldScroll = oldNav?.scrollLeft ?? 0;
+
+  // Someone was typing a tab name when the window redrew (e.g. another player moved an item):
+  // remember it so they can carry on typing in the new tab bar.
+  let resume = null;
+  const editing = oldNav?.querySelector(".ah-tab-editing");
+  const editInput = editing?.querySelector(".ah-tab-input");
+  if ( editInput && !editInput.disabled && (document.activeElement === editInput) ) {
+    editInput.dataset.abandoned = "1";
+    resume = {
+      mode: editing.dataset.editMode,
+      tabId: editing.dataset.editTab,
+      value: editInput.value,
+      start: editInput.selectionStart,
+      end: editInput.selectionEnd
+    };
+  }
   root.querySelectorAll(".ah-stash-tabs").forEach(el => el.remove());
   const inventory = root.querySelector("dnd5e-inventory, .inventory-element");
   if ( !inventory ) return;
@@ -576,29 +629,31 @@ function addTabs(app, root, stash) {
   }, { passive: false });
 
   // "+": a new tab appears right there, ready to type its name.
-  const add = nav.querySelector(".ah-tab-add");
-  add?.addEventListener("click", event => {
+  nav.querySelector(".ah-tab-add")?.addEventListener("click", event => {
     event.preventDefault();
     if ( nav.querySelector(".ah-tab-editing") ) return nav.querySelector(".ah-tab-input")?.focus();
     closeFloating();
-    const before = nav.querySelector(`.ah-stash-tab[data-tab-id="${TAB_UNSORTED}"]`) ?? add;
-    const editor = inlineTabInput(before, {
-      placeholder: "New tab name",
-      onCommit: async name => {
-        const id = foundry.utils.randomID(8);
-        setActiveTab(stash.id, id);
-        await saveTabs(stash, addTab(getStashConfig(stash).categories, name, id));
-      }
-    });
-    editor.addEventListener("ah-cancel", () => {
-      nav.querySelector(`.ah-stash-tab[data-tab-id="${getActiveTab(stash.id)}"]`)?.classList.add("active");
-    });
+    newTabInline(nav, stash);
   });
 
   inventory.before(nav);
   nav.scrollLeft = oldScroll;
   nav.querySelector(".ah-stash-tab.active")?.scrollIntoView({ block: "nearest", inline: "nearest" });
   applyFilter(root, stash);
+
+  if ( resume && manage ) {
+    let wrap = null;
+    if ( resume.mode === "new" ) wrap = newTabInline(nav, stash, resume.value);
+    else {
+      const category = categories.find(c => c.id === resume.tabId);
+      const btn = category ? nav.querySelector(`.ah-stash-tab[data-tab-id="${CSS.escape(category.id)}"]`) : null;
+      if ( btn ) wrap = renameInline(btn, stash, category, resume.value);
+    }
+    const input = wrap?.querySelector(".ah-tab-input");
+    if ( input ) {
+      try { input.setSelectionRange(resume.start ?? input.value.length, resume.end ?? input.value.length); } catch { /* ignore */ }
+    }
+  }
 }
 
 export function decorateStashSheet(app, element) {

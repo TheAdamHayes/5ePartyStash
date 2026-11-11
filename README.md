@@ -21,7 +21,7 @@ Enable the module in your world, then **log in as the GM once**. The module sets
 ## Getting the bags to players
 
 - **Automatically:** with **Give new stashes to every player character** on (the default), a new stash's bag goes straight into the inventory of every character a player owns.
-- **From the overview:** in **Stash Overview**, each stash has a **Give to everyone** button (puts its bag in every player character's inventory, skipping anyone who already has it) and a **Take back** button (removes it from everyone; no items are lost).
+- **From the overview:** in **Stash Overview**, each stash card has a **Players** list showing every player character with their token picture, name and player. Tick a character to give them that stash's bag, untick to take it back (no items are lost). **All** and **None** do everyone at once. Click **Players** to fold the list away. Anyone else carrying the bag (e.g. an NPC it was dragged onto) also shows up so you can untick them.
 - **By hand:** drag a stash from the **Party Stashes** folder in the Items sidebar onto a character.
 
 ## Using a stash
@@ -97,7 +97,7 @@ A yellow dot on **Save** means you have unsaved changes. **Ctrl+S** saves.
 
 - **Players can create and edit stashes:** when off (the default), only GMs see the wrench, make new stashes, and change stash names, icons, colours and tabs. Everyone can always use the stashes and sort items between tabs. If a player makes a stash while no GM is online, its bag goes into their own assigned character; everyone else gets it once a GM gives it out.
 - **Give new stashes to every player character:** on by default. A "player character" is any character a player owns, plus each player's assigned character.
-- **Party stash overview:** a card for every stash with its item count, tab counts and who carries it. From here you can give a stash to everyone or take it back, open, edit, delete or create stashes, flip both settings above, and **Repair & re-sync** (rebuilds missing sidebar items and updates every carried bag).
+- **Party stash overview:** a card for every stash with its item count, tab counts and a tick-list of who can use it. From here you can choose who gets each stash, open, edit, delete or create stashes, flip both settings above, and **Repair & re-sync** (rebuilds missing sidebar items and updates every carried bag).
 
 ## Macros
 

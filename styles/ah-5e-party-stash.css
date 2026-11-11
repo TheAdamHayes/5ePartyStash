@@ -654,6 +654,49 @@
   padding: 14px 16px;
 }
 
+/* Never taller than the screen: the middle scrolls, the buttons stay put. */
+.ah-stash-editor,
+.ah-stash-overview {
+  max-height: calc(100vh - 20px);
+}
+
+.ah-stash-overview .window-content {
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.ah-stash-editor .window-content {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  padding: 0;
+  overflow: hidden;
+}
+
+.ah-stash-editor .ah-editor {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.ah-stash-editor .ah-editor-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  padding: 14px 16px 2px;
+  overflow-y: auto;
+  scrollbar-gutter: stable;
+}
+
+/* The Save bar is pinned to the bottom of the window */
+.ah-stash-editor .ah-editor > .ah-footer {
+  flex: 0 0 auto;
+  margin: 0;
+  padding: 10px 16px;
+  background: linear-gradient(to bottom, rgba(0, 0, 0, 0.05), rgba(0, 0, 0, 0.15));
+  border-top: 1px solid var(--ah-accent-mid);
+}
+
 .ah-party-stash-app .ah-hint {
   margin: 6px 0 0;
   font-size: 11.5px;
@@ -1094,8 +1137,8 @@
 /* Icon picker */
 .ah-icon-grid {
   display: grid;
-  grid-template-columns: repeat(5, 1fr);
-  gap: 8px;
+  grid-template-columns: repeat(auto-fill, minmax(46px, 1fr));
+  gap: 6px;
 }
 
 .ah-icon-choice {
@@ -1104,7 +1147,7 @@
   aspect-ratio: 1;
   overflow: hidden;
   border: 2px solid transparent;
-  border-radius: 10px;
+  border-radius: 8px;
   background: rgba(0, 0, 0, 0.15);
   cursor: pointer;
   animation: ah-fade-up 0.25s var(--ah-ease) both;
@@ -1144,14 +1187,14 @@
 .ah-icon-choice.selected::after {
   content: "\f00c";
   position: absolute;
-  top: 4px;
-  right: 4px;
-  width: 18px;
-  height: 18px;
+  top: 2px;
+  right: 2px;
+  width: 15px;
+  height: 15px;
   font-family: "Font Awesome 6 Pro", "Font Awesome 6 Free", "Font Awesome 5 Free", sans-serif;
   font-weight: 900;
-  font-size: 10px;
-  line-height: 18px;
+  font-size: 8px;
+  line-height: 15px;
   text-align: center;
   color: #fff;
   background: var(--ah-accent, #4fb3c9);
@@ -1498,40 +1541,220 @@
   gap: 4px;
 }
 
-.ah-card-carriers {
+/* ---------- Who can use each stash ---------- */
+
+.ah-access {
+  border-top: 1px solid var(--ah-accent-soft);
+  padding-top: 8px;
+}
+
+.ah-access-head {
   display: flex;
-  flex-wrap: wrap;
   align-items: center;
-  gap: 4px;
-  font-size: 12px;
+  gap: 8px;
 }
 
-.ah-card-carriers > i {
-  margin-right: 2px;
-  opacity: 0.5;
+.ah-access-toggle {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: auto;
+  height: 34px;
+  margin: 0;
+  padding: 0 10px;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: inherit;
+  text-align: left;
+  background: var(--ah-accent-soft);
+  border: 1px solid var(--ah-accent-mid);
+  border-radius: 8px;
+  box-shadow: none;
 }
 
-.ah-card-carriers em {
+.ah-access-toggle:hover {
+  background: color-mix(in srgb, var(--ah-accent, #4fb3c9) 26%, transparent);
+}
+
+.ah-access-toggle > i:first-child {
+  color: var(--ah-accent, #4fb3c9);
+}
+
+/* Little stack of faces of who has access */
+.ah-avatars {
+  display: inline-flex;
+  margin-left: 4px;
+}
+
+.ah-avatars img,
+.ah-avatar-more {
+  width: 22px;
+  height: 22px;
+  margin-left: -6px;
+  object-fit: cover;
+  border: 2px solid rgba(20, 22, 28, 0.9);
+  border-radius: 50%;
+  background: rgba(127, 127, 127, 0.4);
+}
+
+.ah-avatars img:first-child {
+  margin-left: 0;
+}
+
+.ah-avatar-more {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 9px;
+  font-weight: 700;
+}
+
+.ah-access-count {
+  margin-left: auto;
+  font-variant-numeric: tabular-nums;
+}
+
+.ah-access-count span {
   opacity: 0.55;
 }
 
-.ah-person {
-  padding: 1px 8px;
-  font-size: 11px;
-  background: rgba(127, 127, 127, 0.15);
-  border-radius: 10px;
+.ah-access-toggle .ah-chevron {
+  font-size: 10px;
+  opacity: 0.7;
+  transition: transform 0.2s var(--ah-ease);
 }
 
-.ah-card-actions {
-  display: flex;
+.ah-access.collapsed .ah-chevron {
+  transform: rotate(-90deg);
+}
+
+.ah-access-quick {
+  display: inline-flex;
+  gap: 2px;
+}
+
+.ah-party-stash-app .ah-link[disabled] {
+  opacity: 0.3;
+  cursor: default;
+}
+
+/* The checklist (folds away smoothly) */
+.ah-access-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
   gap: 6px;
-  margin-top: auto;
-  padding-top: 8px;
-  border-top: 1px solid var(--ah-accent-soft);
+  max-height: 600px;
+  margin-top: 8px;
+  overflow: hidden;
+  transition: max-height 0.25s var(--ah-ease), margin 0.25s var(--ah-ease), opacity 0.2s;
 }
 
-.ah-card-actions .ah-pill-accent {
-  margin-left: auto;
+.ah-access.collapsed .ah-access-list {
+  max-height: 0;
+  margin-top: 0;
+  opacity: 0;
+}
+
+.ah-access-row {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  padding: 5px 8px 5px 6px;
+  background: rgba(0, 0, 0, 0.08);
+  border: 1px solid rgba(127, 127, 127, 0.2);
+  border-radius: 8px;
+  cursor: pointer;
+  user-select: none;
+  transition: background 0.15s, border-color 0.15s, opacity 0.15s;
+}
+
+.ah-access-row:hover {
+  border-color: var(--ah-accent-mid);
+}
+
+.ah-access-row.on {
+  background: var(--ah-accent-soft);
+  border-color: var(--ah-accent, #4fb3c9);
+}
+
+.ah-access-row.ah-busy {
+  opacity: 0.6;
+  cursor: progress;
+}
+
+.ah-access-row input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* Custom tick box */
+.ah-access-row .ah-check {
+  flex: 0 0 18px;
+  width: 18px;
+  height: 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  color: transparent;
+  border: 2px solid rgba(127, 127, 127, 0.6);
+  border-radius: 5px;
+  transition: background 0.15s, border-color 0.15s, color 0.15s, transform 0.15s var(--ah-ease);
+}
+
+.ah-access-row.on .ah-check {
+  color: #fff;
+  background: var(--ah-accent, #4fb3c9);
+  border-color: var(--ah-accent, #4fb3c9);
+  transform: scale(1.05);
+}
+
+.ah-access-row input:focus-visible + .ah-check {
+  outline: 2px solid var(--ah-accent, #4fb3c9);
+  outline-offset: 2px;
+}
+
+.ah-access-img {
+  flex: 0 0 30px;
+  width: 30px;
+  height: 30px;
+  object-fit: cover;
+  border: 2px solid rgba(127, 127, 127, 0.35);
+  border-radius: 50%;
+  transition: border-color 0.15s, filter 0.15s;
+  filter: grayscale(0.7) brightness(0.85);
+}
+
+.ah-access-row.on .ah-access-img {
+  border-color: var(--ah-accent, #4fb3c9);
+  filter: none;
+}
+
+.ah-access-name {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  line-height: 1.2;
+}
+
+.ah-access-name strong {
+  font-size: 12.5px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ah-access-name small {
+  font-size: 10.5px;
+  opacity: 0.6;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .ah-ov-foot {
